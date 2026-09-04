@@ -23,7 +23,6 @@ import {
   Search,
   Settings,
   ShoppingBag,
-  ShoppingCart,
   Sparkles,
   Star,
   Trash2,
@@ -53,7 +52,6 @@ type Product = {
   bestSeller?: boolean;
   description: string;
 };
-type CartItem = { product: Product; quantity: number };
 
 const images = {
   hero: "/manus-storage/hero_7ec07b4f.jpg",
@@ -86,7 +84,7 @@ const categories = [
 ];
 
 const formatPrice = (value: number) => new Intl.NumberFormat("ar-SD").format(value);
-const whatsappNumber = "249000000000"; // Demo setting — replace from Admin Settings before launch.
+const whatsappNumber = "249125835738";
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
@@ -133,13 +131,13 @@ function ProductCard({ product, onAdd, onOpen }: { product: Product; onAdd: (pro
           <div><strong>{formatPrice(product.price)} <small>SDG</small></strong>{product.oldPrice ? <del>{formatPrice(product.oldPrice)} SDG</del> : null}</div>
           <span className={product.stock <= 5 ? "stock stock--low" : "stock"}>{product.stock <= 5 ? "متبقي كمية محدودة" : "متوفر"}</span>
         </div>
-        <button className="add-button" onClick={() => onAdd(product)}><Plus size={16} /> أضيفي للسلة</button>
+        <button className="add-button" onClick={() => onAdd(product)}><MessageCircle size={16} /> اطلبي عبر واتساب</button>
       </div>
     </article>
   );
 }
 
-function Header({ cartCount, onCart, onSearch }: { cartCount: number; onCart: () => void; onSearch: () => void }) {
+function Header({ onSearch }: { onSearch: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const navItems = ["الرئيسية", "المنتجات", "العناية بالبشرة", "العناية بالجسم", "المرطبات", "الأكثر مبيعاً", "العروض"];
   return (
@@ -150,11 +148,10 @@ function Header({ cartCount, onCart, onSearch }: { cartCount: number; onCart: ()
         <div className="header-actions">
           <IconButton label="البحث" onClick={onSearch}><Search size={19} /></IconButton>
           <IconButton label="الحساب"><CircleUserRound size={19} /></IconButton>
-          <IconButton label="سلة المشتريات" onClick={onCart} badge={cartCount}><ShoppingCart size={19} /></IconButton>
         </div>
         <BrandMark />
         <nav className={`main-nav ${menuOpen ? "main-nav--open" : ""}`}>
-          {navItems.map((item, index) => <a key={item} href={index === 0 ? "#home" : `#${item}`}>{item}</a>)}
+          {navItems.map((item, index) => <a key={item} href={index === 0 ? "#home" : `#${item}`} onClick={() => setMenuOpen(false)}>{item}</a>)}
         </nav>
         <a href="#contact" className="header-contact">تواصل معنا <ArrowLeft size={15} /></a>
       </div>
@@ -162,29 +159,10 @@ function Header({ cartCount, onCart, onSearch }: { cartCount: number; onCart: ()
   );
 }
 
-function CartDrawer({ items, open, onClose, onChangeQuantity, onRemove }: { items: CartItem[]; open: boolean; onClose: () => void; onChangeQuantity: (id: number, amount: number) => void; onRemove: (id: number) => void }) {
-  const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const message = items.length
-    ? `السلام عليكم Nadola Collection 🌸%0A%0Aأرغب في طلب:%0A${items.map((item, i) => `${i + 1}. ${item.product.name} — ${item.quantity}`).join("%0A")}%0A%0Aالإجمالي: ${formatPrice(total)} SDG%0A%0Aأرجو تأكيد التوفر والتوصيل.`
-    : "";
-  return (
-    <>
-      {open ? <button className="drawer-overlay" onClick={onClose} aria-label="إغلاق السلة" /> : null}
-      <aside className={`cart-drawer ${open ? "cart-drawer--open" : ""}`} aria-label="سلة المشتريات">
-        <div className="drawer-head"><div><span className="eyebrow">NADOLA COLLECTION</span><h2>سلة مشترياتك</h2></div><button className="close-button" onClick={onClose} aria-label="إغلاق"><X size={20} /></button></div>
-        {items.length === 0 ? <div className="cart-empty"><ShoppingBag size={35} /><h3>السلة فارغة حالياً</h3><p>أضيفي القطع التي تحبينها، وسنجهز لكِ طلباً سهلاً عبر واتساب.</p><button className="button button--dark" onClick={onClose}>اكتشفي المنتجات</button></div> : <>
-          <div className="cart-items">{items.map(({ product, quantity }) => <div className="cart-item" key={product.id}><img src={product.image} alt="" /><div className="cart-item__info"><strong>{product.name}</strong><span>{product.size}</span><b>{formatPrice(product.price)} SDG</b><div className="qty"><button onClick={() => onChangeQuantity(product.id, -1)}><Minus size={13} /></button><span>{quantity}</span><button onClick={() => onChangeQuantity(product.id, 1)}><Plus size={13} /></button></div></div><button className="cart-item__remove" onClick={() => onRemove(product.id)} aria-label="حذف"><Trash2 size={16} /></button></div>)}</div>
-          <div className="cart-summary"><div><span>الإجمالي</span><strong>{formatPrice(total)} <small>SDG</small></strong></div><p>سعر تجريبي قابل للتعديل من بيانات المنتجات.</p><a className="button button--whatsapp button--full" href={`https://wa.me/${whatsappNumber}?text=${message}`} target="_blank" rel="noreferrer"><MessageCircle size={17} /> إتمام الطلب عبر واتساب</a></div>
-        </>}
-      </aside>
-    </>
-  );
-}
-
 function ProductModal({ product, onClose, onAdd }: { product: Product | null; onClose: () => void; onAdd: (product: Product, quantity?: number) => void }) {
   const [quantity, setQuantity] = useState(1);
   if (!product) return null;
-  return <div className="modal-backdrop" role="dialog" aria-modal="true"><div className="product-modal"><button className="close-button product-modal__close" onClick={onClose}><X size={20} /></button><div className="product-modal__image"><img src={product.image} alt={product.name} /></div><div className="product-modal__content"><span className="eyebrow">{product.category}</span><h2>{product.name}</h2><p className="product-modal__en">{product.en}</p><div className="product-modal__price"><strong>{formatPrice(product.price)} <small>SDG</small></strong>{product.oldPrice ? <del>{formatPrice(product.oldPrice)} SDG</del> : null}</div><div className="product-modal__facts"><span><Package size={16} /> {product.size}</span><span><Check size={16} /> {product.stock > 0 ? "متوفر" : "غير متوفر"}</span><span><Star size={16} fill="currentColor" /> 4.9 / 5</span></div><p className="product-modal__description">{product.description}</p><div className="quantity-row"><span>الكمية</span><div className="qty qty--large"><button onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={15} /></button><span>{quantity}</span><button onClick={() => setQuantity(quantity + 1)}><Plus size={15} /></button></div></div><div className="product-modal__actions"><button className="button button--dark" onClick={() => { onAdd(product, quantity); onClose(); }}>أضيفي للسلة <ShoppingCart size={17} /></button><WhatsAppButton product={product} quantity={quantity} /></div><p className="demo-note">ملاحظة: المكونات وطريقة الاستخدام والأسعار هنا بيانات تجريبية قابلة للتحرير.</p></div></div></div>;
+  return <div className="modal-backdrop" role="dialog" aria-modal="true"><div className="product-modal"><button className="close-button product-modal__close" onClick={onClose}><X size={20} /></button><div className="product-modal__image"><img src={product.image} alt={product.name} /></div><div className="product-modal__content"><span className="eyebrow">{product.category}</span><h2>{product.name}</h2><p className="product-modal__en">{product.en}</p><div className="product-modal__price"><strong>{formatPrice(product.price)} <small>SDG</small></strong>{product.oldPrice ? <del>{formatPrice(product.oldPrice)} SDG</del> : null}</div><div className="product-modal__facts"><span><Package size={16} /> {product.size}</span><span><Check size={16} /> {product.stock > 0 ? "متوفر" : "غير متوفر"}</span><span><Star size={16} fill="currentColor" /> 4.9 / 5</span></div><p className="product-modal__description">{product.description}</p><div className="quantity-row"><span>الكمية</span><div className="qty qty--large"><button onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={15} /></button><span>{quantity}</span><button onClick={() => setQuantity(quantity + 1)}><Plus size={15} /></button></div></div><div className="product-modal__actions"><button className="button button--dark" onClick={() => { onAdd(product, quantity); onClose(); }}>اطلبي عبر واتساب <MessageCircle size={17} /></button></div><p className="demo-note">ملاحظة: المكونات وطريقة الاستخدام والأسعار هنا بيانات تجريبية قابلة للتحرير.</p></div></div></div>;
 }
 
 function SearchPanel({ open, onClose, value, onChange, results, onOpen }: { open: boolean; onClose: () => void; value: string; onChange: (value: string) => void; results: Product[]; onOpen: (p: Product) => void }) {
@@ -197,8 +175,6 @@ function Home() {
   const [sort, setSort] = useState("featured");
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const filteredProducts = useMemo(() => {
@@ -209,17 +185,13 @@ function Home() {
     if (sort === "best") return [...list].sort((a, b) => Number(b.bestSeller) - Number(a.bestSeller));
     return [...list].sort((a, b) => Number(b.featured) - Number(a.featured));
   }, [category, search, sort]);
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const addToCart = (product: Product, quantity = 1) => {
-    setCart(items => { const found = items.find(item => item.product.id === product.id); return found ? items.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + quantity } : item) : [...items, { product, quantity }]; });
-    toast.success("تمت إضافة المنتج إلى السلة", { description: product.name });
+    window.open(`https://wa.me/${whatsappNumber}?text=السلام عليكم Nadola Collection 🌸%0A%0Aأرغب في طلب:%0Aالمنتج: ${product.name}%0Aالحجم: ${product.size}%0Aالكمية: ${quantity}%0Aالسعر: ${formatPrice(product.price * quantity)} SDG%0A%0Aأرجو تأكيد التوفر والتوصيل.`, "_blank", "noopener,noreferrer");
   };
-  const updateQty = (id: number, amount: number) => setCart(items => items.map(item => item.product.id === id ? { ...item, quantity: Math.max(1, item.quantity + amount) } : item));
-  const removeItem = (id: number) => setCart(items => items.filter(item => item.product.id !== id));
   const openCategory = (value: Category) => { setCategory(value); document.getElementById("products")?.scrollIntoView({ behavior: "smooth" }); };
 
   return <div className="storefront" dir="rtl">
-    <Header cartCount={cartCount} onCart={() => setCartOpen(true)} onSearch={() => setSearchOpen(true)} />
+    <Header onSearch={() => setSearchOpen(true)} />
     <SearchPanel open={searchOpen} onClose={() => setSearchOpen(false)} value={search} onChange={setSearch} results={filteredProducts} onOpen={setSelectedProduct} />
     <main>
       <section id="home" className="hero-section"><div className="container hero-grid"><div className="hero-copy"><span className="eyebrow eyebrow--gold">NADOLA COLLECTION <span>•</span> BEAUTY ESSENTIALS</span><h1>عنايتك ببشرتك<br /><em>تبدأ من Nadola</em></h1><p>اكتشفي مجموعة مختارة من منتجات العناية بالبشرة والجسم والمرطبات لتمنحي بشرتك عناية تستحقها.</p><div className="hero-actions"><button className="button button--dark" onClick={() => openCategory("الكل")}>تسوقي الآن <ArrowLeft size={17} /></button><WhatsAppButton /></div><div className="hero-footnote"><span><Check size={14} /> منتجات مختارة بعناية</span><span><Check size={14} /> طلب سريع عبر واتساب</span></div></div><div className="hero-visual"><img src={images.hero} alt="منتجات Nadola للعناية بالبشرة والجسم" /><div className="hero-visual__label"><span>مختارات العناية</span><strong>كل يوم، بلطف أكثر.</strong></div></div></div></section>
@@ -229,11 +201,10 @@ function Home() {
       <section className="feature-banner"><div className="container feature-banner__inner"><div><span className="eyebrow eyebrow--gold">THE NADOLA RITUAL</span><h2>تفاصيل صغيرة،<br /><em>إحساس أكبر بالعناية.</em></h2><p>نختار لكِ قطعاً تنسجم مع يومك — من المرطب اليومي إلى لحظات العناية الهادئة.</p><button className="button button--light" onClick={() => openCategory("المرطبات")}>اكتشفي المرطبات <ArrowLeft size={17} /></button></div><div className="feature-banner__ornament"><span>01</span><div className="ornament-line" /><span>04</span></div></div></section>
       <section className="section bestseller-section"><div className="container"><div className="section-heading"><div><span className="eyebrow">MOST LOVED</span><h2>الأكثر مبيعاً</h2></div><button className="text-link" onClick={() => { setSort("best"); openCategory("الكل"); }}>شاهدي المجموعة <ArrowLeft size={15} /></button></div><div className="bestseller-grid"><div className="bestseller-feature"><img src={images.offers} alt="مجموعة عناية" /><div><span className="eyebrow eyebrow--gold">NADOLA SETS</span><h3>لحظات عناية<br /><em>تستحق الاحتفاء.</em></h3><button className="button button--light" onClick={() => openCategory("العروض")}>شاهدي العروض <ArrowLeft size={16} /></button></div></div><div className="mini-products">{products.filter(p => p.bestSeller).slice(0, 3).map(product => <ProductCard key={product.id} product={product} onAdd={addToCart} onOpen={setSelectedProduct} />)}</div></div></div></section>
       <section className="section guide-section"><div className="container guide-grid"><div className="guide-intro"><span className="eyebrow">دليل العناية</span><h2>نصائح بسيطة<br /><em>لروتين أجمل.</em></h2><p>محتوى توعوي مختصر يساعدك على اختيار المنتجات واستخدامها بلطف، دون ادعاءات طبية أو علاجية.</p><button className="text-link">اكتشفي الدليل <ArrowLeft size={15} /></button></div><div className="guide-list">{["كيف تختارين المرطب المناسب؟", "روتين العناية بالجسم", "كيف تستخدمين كريم الجسم؟", "الفرق بين الكريم واللوشن"].map((title, i) => <button key={title} className="guide-item"><span>0{i + 1}</span><strong>{title}</strong><ArrowLeft size={18} /></button>)}</div></div></section>
-      <section className="trust-section"><div className="container trust-grid"><div className="trust-heading"><span className="eyebrow eyebrow--gold">WHY NADOLA?</span><h2>كل ما تحتاجه<br /><em>تجربة أهدأ.</em></h2></div>{[{ icon: Sparkles, title: "منتجات مختارة بعناية", text: "كتالوج هادئ وواضح يساعدك على الاختيار بسهولة." }, { icon: ShoppingBag, title: "تجربة شراء سهلة", text: "من التصفح إلى السلة، خطوات قليلة وواضحة." }, { icon: MessageCircle, title: "طلب سريع عبر واتساب", text: "أرسلي طلبك في رسالة واحدة وتابعي التفاصيل مباشرة." }, { icon: Heart, title: "خدمة عملاء مباشرة", text: "مساحة ترحيبية للاستفسارات قبل وبعد الطلب." }].map(({ icon: Icon, title, text }) => <div className="trust-item" key={title}><Icon size={22} strokeWidth={1.5} /><h3>{title}</h3><p>{text}</p></div>)}</div></section>
+      <section className="trust-section"><div className="container trust-grid"><div className="trust-heading"><span className="eyebrow eyebrow--gold">WHY NADOLA?</span><h2>كل ما تحتاجه<br /><em>تجربة أهدأ.</em></h2></div>{[{ icon: Sparkles, title: "منتجات مختارة بعناية", text: "كتالوج هادئ وواضح يساعدك على الاختيار بسهولة." }, { icon: ShoppingBag, title: "تجربة شراء سهلة", text: "من التصفح إلى الطلب، خطوات قليلة وواضحة." }, { icon: MessageCircle, title: "طلب سريع عبر واتساب", text: "أرسلي طلبك في رسالة واحدة وتابعي التفاصيل مباشرة." }, { icon: Heart, title: "خدمة عملاء مباشرة", text: "مساحة ترحيبية للاستفسارات قبل وبعد الطلب." }].map(({ icon: Icon, title, text }) => <div className="trust-item" key={title}><Icon size={22} strokeWidth={1.5} /><h3>{title}</h3><p>{text}</p></div>)}</div></section>
       <section className="section instagram-section"><div className="container"><div className="section-heading"><div><span className="eyebrow">@NADOLACOLLECTION</span><h2>تابعينا على Instagram</h2></div><a className="text-link" href="https://instagram.com" target="_blank" rel="noreferrer">تابعينا <Instagram size={16} /></a></div><div className="instagram-grid">{[images.skincare, images.bodycare, images.moisturizer, images.offers, images.hero].map((image, i) => <a href="https://instagram.com" target="_blank" rel="noreferrer" key={`${image}-${i}`}><img src={image} alt="لقطة من منتجات Nadola" loading="lazy" /><span><Instagram size={18} /></span></a>)}</div></div></section>
     </main>
     <footer id="contact" className="site-footer"><div className="container footer-grid"><div><BrandMark /><p>عناية مختارة ببساطة راقية.<br />Nadola Collection — السودان.</p><div className="socials"><a href="https://facebook.com" target="_blank" rel="noreferrer"><Facebook size={17} /></a><a href="https://instagram.com" target="_blank" rel="noreferrer"><Instagram size={17} /></a><a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer"><MessageCircle size={17} /></a></div></div><div><h3>المتجر</h3><a href="#products">كل المنتجات</a><a href="#التصنيفات">التصنيفات</a><a href="#products">الأكثر مبيعاً</a><a href="#products">العروض</a></div><div><h3>مساعدة</h3><a href="#contact">تواصل معنا</a><a href="#home">سياسة التوصيل</a><a href="#home">الأسئلة الشائعة</a><Link href="/admin">لوحة الإدارة</Link></div><div className="footer-newsletter"><h3>كوني على اطلاع</h3><p>اشتركي لتصلك أحدث المختارات والعروض.</p><div><input placeholder="بريدك الإلكتروني" aria-label="البريد الإلكتروني" /><button onClick={() => toast.success("تم تسجيل بريدك في النموذج التجريبي")}>اشتراك</button></div><small>لن نرسل لكِ إلا ما يهمك.</small></div></div><div className="container footer-bottom"><span>© 2026 Nadola Collection. Demo storefront.</span><span>صُمم بعناية للسوق السوداني <span className="gold-dot">✦</span></span></div></footer>
-    <CartDrawer items={cart} open={cartOpen} onClose={() => setCartOpen(false)} onChangeQuantity={updateQty} onRemove={removeItem} />
     <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAdd={addToCart} />
   </div>;
 }
