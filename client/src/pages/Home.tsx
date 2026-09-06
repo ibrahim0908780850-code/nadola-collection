@@ -35,6 +35,11 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { Link } from "wouter";
+import heroImage from "@/assets/nadola/hero.jpg";
+import skincareImage from "@/assets/nadola/skincare.jpg";
+import bodycareImage from "@/assets/nadola/bodycare.jpg";
+import moisturizerImage from "@/assets/nadola/moisturizer.jpg";
+import offersImage from "@/assets/nadola/offers.jpg";
 
 type Category = "الكل" | "العناية بالبشرة" | "العناية بالجسم" | "المرطبات" | "العروض";
 type Product = {
@@ -54,11 +59,11 @@ type Product = {
 };
 
 const images = {
-  hero: "/manus-storage/hero_7ec07b4f.jpg",
-  skincare: "/manus-storage/skincare_420a1deb.jpg",
-  bodycare: "/manus-storage/bodycare_c15caa0d.jpg",
-  moisturizer: "/manus-storage/moisturizer_81d5df47.jpg",
-  offers: "/manus-storage/offers_eafa7535.jpg",
+  hero: heroImage,
+  skincare: skincareImage,
+  bodycare: bodycareImage,
+  moisturizer: moisturizerImage,
+  offers: offersImage,
 };
 
 const products: Product[] = [
