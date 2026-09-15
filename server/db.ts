@@ -5,6 +5,7 @@ import {
   type InsertProduct,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -39,9 +40,41 @@ export async function getUserByOpenId(openId: string) {
   return result[0];
 }
 
+export async function getUserByEmail(email: string) {
+  const db = await getDb(); if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
+  return result[0];
+}
+
+export function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
+}
+
+export function verifyPassword(password: string, stored: string | null) {
+  if (!stored) return false;
+  const [salt, expected] = stored.split(":");
+  if (!salt || !expected) return false;
+  const actual = scryptSync(password, salt, 64);
+  const expectedBuffer = Buffer.from(expected, "hex");
+  return expectedBuffer.length === actual.length && timingSafeEqual(actual, expectedBuffer);
+}
+
+export async function registerLocalUser(input: { name: string; email: string; password: string }) {
+  const db = await getDb(); if (!db) throw new Error("Database unavailable");
+  const email = input.email.trim().toLowerCase();
+  const existing = await getUserByEmail(email);
+  if (existing) return { user: existing, created: false };
+  await db.insert(users).values({ openId: `local:${email}`, name: input.name.trim(), email, passwordHash: hashPassword(input.password), loginMethod: "password", role: "user" });
+  const user = await getUserByOpenId(`local:${email}`);
+  return { user: user!, created: true };
+}
+
 export async function listProducts(search?: string) {
   const db = await getDb(); if (!db) return [];
-  const where = search ? or(sql`${products.name} like ${`%${search}%`}`, sql`${products.categoryName} like ${`%${search}%`}`) : undefined;
+  const where = search
+    ? and(eq(products.status, "active"), or(sql`${products.name} like ${`%${search}%`}`, sql`${products.categoryName} like ${`%${search}%`}`))
+    : eq(products.status, "active");
   return db.select().from(products).where(where).orderBy(desc(products.createdAt));
 }
 
@@ -54,6 +87,18 @@ export async function createProduct(input: InsertProduct) {
   const db = await getDb(); if (!db) throw new Error("Database unavailable");
   const result = await db.insert(products).values(input);
   return result[0].insertId;
+}
+
+export async function updateProduct(id: number, input: Partial<InsertProduct>) {
+  const db = await getDb(); if (!db) throw new Error("Database unavailable");
+  await db.update(products).set({ ...input, updatedAt: new Date() }).where(eq(products.id, id));
+  return { success: true } as const;
+}
+
+export async function deleteProduct(id: number) {
+  const db = await getDb(); if (!db) throw new Error("Database unavailable");
+  await db.update(products).set({ status: "archived", updatedAt: new Date() }).where(eq(products.id, id));
+  return { success: true } as const;
 }
 
 export async function createOrder(input: {

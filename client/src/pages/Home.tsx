@@ -10,6 +10,7 @@ import {
   Star, Check, Sparkles, ShieldCheck, Truck, Headphones, Instagram, Facebook,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useLocation } from "wouter";
 
 type Product = {
   id: number; name: string; category: string; size: string; price: number;
@@ -69,6 +70,7 @@ export default function Home() {
   // startLogin() during render (no href={startLogin()}) — it mints a one-time
   // nonce cookie and must run only at the moment of navigation.
   const { user, isAuthenticated, logout } = useAuth();
+  const [, navigate] = useLocation();
   const { data: remoteProducts } = trpc.catalog.list.useQuery(undefined, { staleTime: 30_000 });
   const { data: adminStats } = trpc.admin.stats.useQuery(undefined, { enabled: isAuthenticated, retry: false });
 
@@ -140,7 +142,7 @@ export default function Home() {
           <nav className="hidden items-center gap-7 text-[13px] text-[#625a53] lg:flex">
             {["الرئيسية", "المنتجات", "العناية بالبشرة", "العناية بالجسم", "المرطبات", "الأكثر مبيعاً", "العروض"].map((item, i) => <a key={item} href={i === 0 ? "#top" : i === 1 ? "#products" : "#categories"} className="transition hover:text-[#9b7646]">{item}</a>)}
           </nav>
-          <div className="flex items-center gap-3"><button className="hidden sm:block" onClick={() => document.getElementById("search")?.focus()} aria-label="بحث"><Search size={20} /></button><button className="hidden sm:block" onClick={() => isAuthenticated ? logout() : startLogin()} aria-label="الحساب"><UserRound size={20} /></button><button onClick={() => setCartOpen(true)} className="relative" aria-label="السلة"><ShoppingBag size={21} />{totalItems > 0 && <span className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-[#bd8f56] px-1 text-[9px] text-white">{totalItems}</span>}</button><button onClick={() => setAdminOpen(true)} className="hidden rounded-full border border-[#27231f]/15 px-4 py-2 text-xs sm:flex sm:items-center sm:gap-2"><LayoutDashboard size={14}/> لوحة الإدارة</button></div>
+          <div className="flex items-center gap-3"><button className="hidden sm:block" onClick={() => document.getElementById("search")?.focus()} aria-label="بحث"><Search size={20} /></button><button className="hidden sm:block" onClick={() => isAuthenticated ? logout() : navigate("/login")} aria-label={isAuthenticated ? "تسجيل الخروج" : "تسجيل الدخول"}><UserRound size={20} /></button><button onClick={() => setCartOpen(true)} className="relative" aria-label="السلة"><ShoppingBag size={21} />{totalItems > 0 && <span className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-[#bd8f56] px-1 text-[9px] text-white">{totalItems}</span>}</button></div>
         </div>
       </header>
 
