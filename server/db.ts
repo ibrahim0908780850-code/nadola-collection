@@ -1,0 +1,109 @@
+import { and, count, desc, eq, or, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/mysql2";
+import {
+  InsertUser, users, products, categories, customers, orders, orderItems, inventory, settings,
+  type InsertProduct,
+} from "../drizzle/schema";
+import { ENV } from "./_core/env";
+
+let _db: ReturnType<typeof drizzle> | null = null;
+
+export async function getDb() {
+  if (!_db && process.env.DATABASE_URL) {
+    try { _db = drizzle(process.env.DATABASE_URL); }
+    catch (error) { console.warn("[Database] Failed to connect:", error); _db = null; }
+  }
+  return _db;
+}
+
+export async function upsertUser(user: InsertUser): Promise<void> {
+  if (!user.openId) throw new Error("User openId is required for upsert");
+  const db = await getDb();
+  if (!db) { console.warn("[Database] Cannot upsert user: database not available"); return; }
+  const values: InsertUser = { openId: user.openId };
+  const updateSet: Record<string, unknown> = {};
+  (['name', 'email', 'loginMethod'] as const).forEach((field) => {
+    if (user[field] !== undefined) { values[field] = user[field] ?? null; updateSet[field] = user[field] ?? null; }
+  });
+  if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
+  if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
+  else if (user.openId === ENV.ownerOpenId) { values.role = "admin"; updateSet.role = "admin"; }
+  values.lastSignedIn ??= new Date();
+  if (!Object.keys(updateSet).length) updateSet.lastSignedIn = new Date();
+  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+}
+
+export async function getUserByOpenId(openId: string) {
+  const db = await getDb(); if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  return result[0];
+}
+
+export async function listProducts(search?: string) {
+  const db = await getDb(); if (!db) return [];
+  const where = search ? or(sql`${products.name} like ${`%${search}%`}`, sql`${products.categoryName} like ${`%${search}%`}`) : undefined;
+  return db.select().from(products).where(where).orderBy(desc(products.createdAt));
+}
+
+export async function listCategories() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(categories).orderBy(categories.name);
+}
+
+export async function createProduct(input: InsertProduct) {
+  const db = await getDb(); if (!db) throw new Error("Database unavailable");
+  const result = await db.insert(products).values(input);
+  return result[0].insertId;
+}
+
+export async function createOrder(input: {
+  customerName: string; customerPhone: string; total: number; whatsappMessage?: string;
+  items: Array<{ productId?: number; productName: string; productSize: string; quantity: number; unitPrice: number }>;
+}) {
+  const db = await getDb(); if (!db) throw new Error("Database unavailable");
+  const orderNumber = `ND-${Date.now().toString().slice(-8)}`;
+  const existing = await db.select().from(customers).where(eq(customers.phone, input.customerPhone)).limit(1);
+  let customerId = existing[0]?.id;
+  if (customerId) {
+    await db.update(customers).set({ name: input.customerName, totalOrders: sql`${customers.totalOrders} + 1`, totalSpent: sql`${customers.totalSpent} + ${input.total}` }).where(eq(customers.id, customerId));
+  } else {
+    const customerResult = await db.insert(customers).values({ name: input.customerName, phone: input.customerPhone, totalOrders: 1, totalSpent: input.total });
+    customerId = customerResult[0].insertId;
+  }
+  const orderResult = await db.insert(orders).values({ orderNumber, customerId, customerName: input.customerName, customerPhone: input.customerPhone, total: input.total, whatsappMessage: input.whatsappMessage });
+  const orderId = orderResult[0].insertId;
+  if (input.items.length) await db.insert(orderItems).values(input.items.map(item => ({ ...item, orderId })));
+  for (const item of input.items) {
+    if (item.productId) {
+      await db.update(products).set({ stockQuantity: sql`greatest(${products.stockQuantity} - ${item.quantity}, 0)` }).where(eq(products.id, item.productId));
+      await db.update(inventory).set({ quantity: sql`greatest(${inventory.quantity} - ${item.quantity}, 0)` }).where(eq(inventory.productId, item.productId));
+    }
+  }
+  return { orderId, orderNumber };
+}
+
+export async function getDashboardStats() {
+  const db = await getDb(); if (!db) return { products: 0, orders: 0, todayOrders: 0, lowStock: 0, customers: 0, revenue: 0 };
+  const [productCount] = await db.select({ value: count() }).from(products).where(eq(products.status, "active"));
+  const [orderCount] = await db.select({ value: count() }).from(orders);
+  const [customerCount] = await db.select({ value: count() }).from(customers);
+  const [lowStock] = await db.select({ value: count() }).from(products).where(and(eq(products.status, "active"), sql`${products.stockQuantity} <= ${products.lowStockThreshold}`));
+  const [revenue] = await db.select({ value: sql<number>`coalesce(sum(${orders.total}), 0)` }).from(orders).where(sql`${orders.status} <> 'cancelled'`);
+  const [today] = await db.select({ value: count() }).from(orders).where(sql`date(${orders.createdAt}) = current_date()`);
+  return { products: productCount?.value ?? 0, orders: orderCount?.value ?? 0, todayOrders: today?.value ?? 0, lowStock: lowStock?.value ?? 0, customers: customerCount?.value ?? 0, revenue: Number(revenue?.value ?? 0) };
+}
+
+export async function listOrders() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(orders).orderBy(desc(orders.createdAt)).limit(50);
+}
+
+export async function getSettings() {
+  const db = await getDb(); if (!db) return [];
+  return db.select().from(settings);
+}
+
+export async function upsertSetting(settingKey: string, settingValue: string) {
+  const db = await getDb(); if (!db) throw new Error("Database unavailable");
+  await db.insert(settings).values({ settingKey, settingValue }).onDuplicateKeyUpdate({ set: { settingValue } });
+}
