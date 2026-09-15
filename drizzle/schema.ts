@@ -1,106 +1,106 @@
-import { boolean, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { boolean, integer, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
-export const users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
+export const users = pgTable("users", {
+  id: integer("id").generatedByDefaultAsIdentity().primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   passwordHash: varchar("passwordHash", { length: 255 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  role: text("role").default("user").notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
+  lastSignedIn: timestamp("lastSignedIn", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const categories = mysqlTable("categories", {
-  id: int("id").autoincrement().primaryKey(),
+export const categories = pgTable("categories", {
+  id: integer("id").generatedByDefaultAsIdentity().primaryKey(),
   name: varchar("name", { length: 120 }).notNull(),
   slug: varchar("slug", { length: 140 }).notNull().unique(),
   imageUrl: varchar("imageUrl", { length: 500 }),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const products = mysqlTable("products", {
-  id: int("id").autoincrement().primaryKey(),
+export const products = pgTable("products", {
+  id: integer("id").generatedByDefaultAsIdentity().primaryKey(),
   name: varchar("name", { length: 180 }).notNull(),
   slug: varchar("slug", { length: 220 }).notNull().unique(),
-  categoryId: int("categoryId"),
+  categoryId: integer("categoryId"),
   categoryName: varchar("categoryName", { length: 120 }).notNull(),
   size: varchar("size", { length: 80 }).notNull(),
-  price: int("price").notNull(),
-  oldPrice: int("oldPrice"),
+  price: integer("price").notNull(),
+  oldPrice: integer("oldPrice"),
   imageUrl: varchar("imageUrl", { length: 500 }).notNull(),
   badge: varchar("badge", { length: 80 }),
   description: text("description").notNull(),
   ingredients: text("ingredients"),
   usage: text("usage"),
-  stockQuantity: int("stockQuantity").default(0).notNull(),
-  lowStockThreshold: int("lowStockThreshold").default(5).notNull(),
-  rating: int("rating").default(0).notNull(),
+  stockQuantity: integer("stockQuantity").default(0).notNull(),
+  lowStockThreshold: integer("lowStockThreshold").default(5).notNull(),
+  rating: integer("rating").default(0).notNull(),
   isFeatured: boolean("isFeatured").default(false).notNull(),
   isBestSeller: boolean("isBestSeller").default(false).notNull(),
-  status: mysqlEnum("status", ["active", "draft", "archived"]).default("active").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  status: text("status").default("active").notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const customers = mysqlTable("customers", {
-  id: int("id").autoincrement().primaryKey(),
+export const customers = pgTable("customers", {
+  id: integer("id").generatedByDefaultAsIdentity().primaryKey(),
   name: varchar("name", { length: 160 }).notNull(),
   phone: varchar("phone", { length: 40 }).notNull().unique(),
   email: varchar("email", { length: 320 }),
-  totalOrders: int("totalOrders").default(0).notNull(),
-  totalSpent: int("totalSpent").default(0).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  totalOrders: integer("totalOrders").default(0).notNull(),
+  totalSpent: integer("totalSpent").default(0).notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const orders = mysqlTable("orders", {
-  id: int("id").autoincrement().primaryKey(),
+export const orders = pgTable("orders", {
+  id: integer("id").generatedByDefaultAsIdentity().primaryKey(),
   orderNumber: varchar("orderNumber", { length: 40 }).notNull().unique(),
-  customerId: int("customerId"),
+  customerId: integer("customerId"),
   customerName: varchar("customerName", { length: 160 }).notNull(),
   customerPhone: varchar("customerPhone", { length: 40 }).notNull(),
-  total: int("total").notNull(),
-  status: mysqlEnum("status", ["new", "contacted", "confirmed", "preparing", "shipped", "delivered", "cancelled"]).default("new").notNull(),
+  total: integer("total").notNull(),
+  status: text("status").default("new").notNull(),
   whatsappMessage: text("whatsappMessage"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const orderItems = mysqlTable("order_items", {
-  id: int("id").autoincrement().primaryKey(),
-  orderId: int("orderId").notNull(),
-  productId: int("productId"),
+export const orderItems = pgTable("order_items", {
+  id: integer("id").generatedByDefaultAsIdentity().primaryKey(),
+  orderId: integer("orderId").notNull(),
+  productId: integer("productId"),
   productName: varchar("productName", { length: 180 }).notNull(),
   productSize: varchar("productSize", { length: 80 }).notNull(),
-  quantity: int("quantity").notNull(),
-  unitPrice: int("unitPrice").notNull(),
+  quantity: integer("quantity").notNull(),
+  unitPrice: integer("unitPrice").notNull(),
 });
 
-export const inventory = mysqlTable("inventory", {
-  id: int("id").autoincrement().primaryKey(),
-  productId: int("productId").notNull().unique(),
-  quantity: int("quantity").default(0).notNull(),
-  lowStockThreshold: int("lowStockThreshold").default(5).notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+export const inventory = pgTable("inventory", {
+  id: integer("id").generatedByDefaultAsIdentity().primaryKey(),
+  productId: integer("productId").notNull().unique(),
+  quantity: integer("quantity").default(0).notNull(),
+  lowStockThreshold: integer("lowStockThreshold").default(5).notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const offers = mysqlTable("offers", {
-  id: int("id").autoincrement().primaryKey(),
+export const offers = pgTable("offers", {
+  id: integer("id").generatedByDefaultAsIdentity().primaryKey(),
   name: varchar("name", { length: 160 }).notNull(),
-  type: mysqlEnum("type", ["discount", "bundle", "volume"]).notNull(),
+  type: text("type").notNull(),
   description: text("description"),
   active: boolean("active").default(false).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const settings = mysqlTable("settings", {
-  id: int("id").autoincrement().primaryKey(),
+export const settings = pgTable("settings", {
+  id: integer("id").generatedByDefaultAsIdentity().primaryKey(),
   settingKey: varchar("settingKey", { length: 120 }).notNull().unique(),
   settingValue: text("settingValue"),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type User = typeof users.$inferSelect;

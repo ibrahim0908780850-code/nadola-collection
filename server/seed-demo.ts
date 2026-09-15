@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 import { categories, inventory, products, settings } from "../drizzle/schema";
 
-const db = drizzle(process.env.DATABASE_URL!);
+const pool = new pg.Pool({ connectionString: process.env.SUPABASE_DATABASE_URL ?? process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const db = drizzle(pool);
 const images = {
   skincare: "/manus-storage/nadola-skincare_b2c88fad.jpg",
   bodycare: "/manus-storage/nadola-bodycare_58dacbca.jpg",
@@ -34,7 +36,7 @@ const productRows = [
 
 async function seed() {
   for (const category of categoryRows) {
-    await db.insert(categories).values(category).onDuplicateKeyUpdate({ set: { name: category.name, imageUrl: category.imageUrl } });
+    await db.insert(categories).values(category).onConflictDoUpdate({ target: categories.slug, set: { name: category.name, imageUrl: category.imageUrl } });
   }
   for (const [name, slug, categoryName, size, price, imageUrl, badge, stockQuantity, rating, isBestSeller] of productRows) {
     await db.insert(products).values({
@@ -42,16 +44,16 @@ async function seed() {
       description: "وصف تجريبي قابل للتعديل من لوحة الإدارة. لا يتضمن ادعاءات طبية أو علاجية.",
       ingredients: "تُضاف المكونات بعد اعتماد بيانات المنتج.", usage: "تُضاف طريقة الاستخدام بعد اعتماد بيانات المنتج.",
       stockQuantity, lowStockThreshold: 5, rating, isFeatured: true, isBestSeller, status: "active",
-    }).onDuplicateKeyUpdate({ set: { name, categoryName, size, price, imageUrl, badge, stockQuantity, rating, isBestSeller, updatedAt: new Date() } });
+    }).onConflictDoUpdate({ target: products.slug, set: { name, categoryName, size, price, imageUrl, badge, stockQuantity, rating, isBestSeller, updatedAt: new Date() } });
     const product = (await db.select().from(products).where(eq(products.slug, slug)).limit(1))[0];
-    if (product) await db.insert(inventory).values({ productId: product.id, quantity: stockQuantity, lowStockThreshold: 5 }).onDuplicateKeyUpdate({ set: { quantity: stockQuantity, updatedAt: new Date() } });
+    if (product) await db.insert(inventory).values({ productId: product.id, quantity: stockQuantity, lowStockThreshold: 5 }).onConflictDoUpdate({ target: inventory.productId, set: { quantity: stockQuantity, updatedAt: new Date() } });
   }
   for (const setting of [
     { settingKey: "whatsapp_number", settingValue: "249900000000" },
     { settingKey: "instagram_url", settingValue: "https://instagram.com/nadola.collection" },
     { settingKey: "facebook_url", settingValue: "https://facebook.com/nadola.collection" },
-  ]) await db.insert(settings).values(setting).onDuplicateKeyUpdate({ set: { settingValue: setting.settingValue } });
+  ]) await db.insert(settings).values(setting).onConflictDoUpdate({ target: settings.settingKey, set: { settingValue: setting.settingValue } });
   console.log(`Seeded ${productRows.length} Nadola demo products and ${categoryRows.length} categories.`);
 }
 
-seed().catch((error) => { console.error(error); process.exit(1); });
+seed().catch((error) => { console.error(error); process.exit(1); }).finally(() => pool.end());

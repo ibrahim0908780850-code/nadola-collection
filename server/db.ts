@@ -1,5 +1,6 @@
 import { and, count, desc, eq, or, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 import {
   InsertUser, users, products, categories, customers, orders, orderItems, inventory, settings,
   type InsertProduct,
@@ -7,11 +8,17 @@ import {
 import { ENV } from "./_core/env";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
+const { Pool } = pg;
 let _db: ReturnType<typeof drizzle> | null = null;
+let _pool: pg.Pool | null = null;
 
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try { _db = drizzle(process.env.DATABASE_URL); }
+  const connectionString = process.env.SUPABASE_DATABASE_URL ?? process.env.DATABASE_URL;
+  if (!_db && connectionString) {
+    try {
+      _pool = new Pool({ connectionString, ssl: connectionString.includes("supabase") ? { rejectUnauthorized: false } : undefined, max: 5 });
+      _db = drizzle(_pool);
+    }
     catch (error) { console.warn("[Database] Failed to connect:", error); _db = null; }
   }
   return _db;
@@ -31,7 +38,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   else if (user.openId === ENV.ownerOpenId) { values.role = "admin"; updateSet.role = "admin"; }
   values.lastSignedIn ??= new Date();
   if (!Object.keys(updateSet).length) updateSet.lastSignedIn = new Date();
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  await db.insert(users).values(values).onConflictDoUpdate({ target: users.openId, set: updateSet });
 }
 
 export async function getUserByOpenId(openId: string) {
@@ -85,8 +92,8 @@ export async function listCategories() {
 
 export async function createProduct(input: InsertProduct) {
   const db = await getDb(); if (!db) throw new Error("Database unavailable");
-  const result = await db.insert(products).values(input);
-  return result[0].insertId;
+  const [result] = await db.insert(products).values(input).returning({ id: products.id });
+  return result?.id;
 }
 
 export async function updateProduct(id: number, input: Partial<InsertProduct>) {
@@ -112,11 +119,11 @@ export async function createOrder(input: {
   if (customerId) {
     await db.update(customers).set({ name: input.customerName, totalOrders: sql`${customers.totalOrders} + 1`, totalSpent: sql`${customers.totalSpent} + ${input.total}` }).where(eq(customers.id, customerId));
   } else {
-    const customerResult = await db.insert(customers).values({ name: input.customerName, phone: input.customerPhone, totalOrders: 1, totalSpent: input.total });
-    customerId = customerResult[0].insertId;
+    const [customerResult] = await db.insert(customers).values({ name: input.customerName, phone: input.customerPhone, totalOrders: 1, totalSpent: input.total }).returning({ id: customers.id });
+    customerId = customerResult?.id;
   }
-  const orderResult = await db.insert(orders).values({ orderNumber, customerId, customerName: input.customerName, customerPhone: input.customerPhone, total: input.total, whatsappMessage: input.whatsappMessage });
-  const orderId = orderResult[0].insertId;
+  const [orderResult] = await db.insert(orders).values({ orderNumber, customerId, customerName: input.customerName, customerPhone: input.customerPhone, total: input.total, whatsappMessage: input.whatsappMessage }).returning({ id: orders.id });
+  const orderId = orderResult?.id;
   if (input.items.length) await db.insert(orderItems).values(input.items.map(item => ({ ...item, orderId })));
   for (const item of input.items) {
     if (item.productId) {
@@ -134,7 +141,7 @@ export async function getDashboardStats() {
   const [customerCount] = await db.select({ value: count() }).from(customers);
   const [lowStock] = await db.select({ value: count() }).from(products).where(and(eq(products.status, "active"), sql`${products.stockQuantity} <= ${products.lowStockThreshold}`));
   const [revenue] = await db.select({ value: sql<number>`coalesce(sum(${orders.total}), 0)` }).from(orders).where(sql`${orders.status} <> 'cancelled'`);
-  const [today] = await db.select({ value: count() }).from(orders).where(sql`date(${orders.createdAt}) = current_date()`);
+  const [today] = await db.select({ value: count() }).from(orders).where(sql`date(${orders.createdAt}) = current_date`);
   return { products: productCount?.value ?? 0, orders: orderCount?.value ?? 0, todayOrders: today?.value ?? 0, lowStock: lowStock?.value ?? 0, customers: customerCount?.value ?? 0, revenue: Number(revenue?.value ?? 0) };
 }
 
@@ -150,5 +157,5 @@ export async function getSettings() {
 
 export async function upsertSetting(settingKey: string, settingValue: string) {
   const db = await getDb(); if (!db) throw new Error("Database unavailable");
-  await db.insert(settings).values({ settingKey, settingValue }).onDuplicateKeyUpdate({ set: { settingValue } });
+  await db.insert(settings).values({ settingKey, settingValue }).onConflictDoUpdate({ target: settings.settingKey, set: { settingValue } });
 }
