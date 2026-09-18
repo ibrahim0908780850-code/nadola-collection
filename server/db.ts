@@ -85,6 +85,14 @@ export async function listProducts(search?: string) {
   return db.select().from(products).where(where).orderBy(desc(products.createdAt));
 }
 
+export async function listAdminProducts(search?: string, status?: string) {
+  const db = await getDb(); if (!db) return [];
+  const filters = [];
+  if (status && status !== "all") filters.push(eq(products.status, status));
+  if (search?.trim()) filters.push(or(sql`${products.name} ilike ${`%${search.trim()}%`}`, sql`${products.categoryName} ilike ${`%${search.trim()}%`}`));
+  return db.select().from(products).where(filters.length ? and(...filters) : undefined).orderBy(desc(products.updatedAt));
+}
+
 export async function listCategories() {
   const db = await getDb(); if (!db) return [];
   return db.select().from(categories).orderBy(categories.name);
@@ -148,6 +156,20 @@ export async function getDashboardStats() {
 export async function listOrders() {
   const db = await getDb(); if (!db) return [];
   return db.select().from(orders).orderBy(desc(orders.createdAt)).limit(50);
+}
+
+export async function updateOrderStatus(id: number, status: string) {
+  const db = await getDb(); if (!db) throw new Error("Database unavailable");
+  await db.update(orders).set({ status, updatedAt: new Date() }).where(eq(orders.id, id));
+  return { success: true } as const;
+}
+
+export async function listCustomers(search?: string) {
+  const db = await getDb(); if (!db) return [];
+  const where = search?.trim()
+    ? or(sql`${customers.name} ilike ${`%${search.trim()}%`}`, sql`${customers.phone} ilike ${`%${search.trim()}%`}`)
+    : undefined;
+  return db.select().from(customers).where(where).orderBy(desc(customers.totalSpent)).limit(200);
 }
 
 export async function getSettings() {
