@@ -100,12 +100,18 @@ export async function listCategories() {
 
 export async function createProduct(input: InsertProduct) {
   const db = await getDb(); if (!db) throw new Error("Database unavailable");
+  const duplicate = await db.select({ id: products.id }).from(products).where(or(eq(products.slug, input.slug), sql`lower(${products.name}) = lower(${input.name})`)).limit(1);
+  if (duplicate.length) throw new Error("PRODUCT_ALREADY_EXISTS");
   const [result] = await db.insert(products).values(input).returning({ id: products.id });
   return result?.id;
 }
 
 export async function updateProduct(id: number, input: Partial<InsertProduct>) {
   const db = await getDb(); if (!db) throw new Error("Database unavailable");
+  if (input.name || input.slug) {
+    const duplicate = await db.select({ id: products.id }).from(products).where(and(sql`${products.id} <> ${id}`, or(input.slug ? eq(products.slug, input.slug) : sql`false`, input.name ? sql`lower(${products.name}) = lower(${input.name})` : sql`false`))).limit(1);
+    if (duplicate.length) throw new Error("PRODUCT_ALREADY_EXISTS");
+  }
   await db.update(products).set({ ...input, updatedAt: new Date() }).where(eq(products.id, id));
   return { success: true } as const;
 }

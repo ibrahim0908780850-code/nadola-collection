@@ -112,8 +112,8 @@ export default function Home() {
       return toast.error("أضيفي الاسم ورقم الهاتف لحفظ الطلب");
     }
     const orderTotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-    const lines = items.map((i, idx) => `${idx + 1}. ${i.name} — ${i.quantity}`);
-    const rawMessage = `السلام عليكم Nadola Collection 🌸\n\nأرغب في طلب:\n${lines.join("\n")}\n\nالإجمالي: ${money(orderTotal)}\n\nأرجو تأكيد التوفر والتوصيل.`;
+    const lines = items.map((i, idx) => { const imageUrl = i.image.startsWith("http") ? i.image : `${window.location.origin}${i.image}`; return `${idx + 1}. ${i.name} — الكمية: ${i.quantity}\nصورة المنتج: ${imageUrl}`; });
+    const rawMessage = `السلام عليكم Nadola Collection 🌸\n\nأرغب في طلب:\n${lines.join("\n\n")}\n\nالإجمالي: ${money(orderTotal)}\n\nأرجو تأكيد التوفر والتوصيل.`;
     createOrder.mutate({
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),

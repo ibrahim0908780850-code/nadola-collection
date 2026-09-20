@@ -54,8 +54,8 @@ export default function Admin() {
   const { data: orders = [], isLoading: ordersLoading } = trpc.admin.orders.useQuery(undefined, { enabled, retry: false });
   const { data: customers = [], isLoading: customersLoading } = trpc.admin.customers.useQuery({ search: customerSearch || undefined }, { enabled, retry: false });
   const { data: settings = [] } = trpc.admin.settings.useQuery(undefined, { enabled, retry: false });
-  const create = trpc.admin.createProduct.useMutation({ onSuccess: () => { toast.success("تمت إضافة المنتج"); utils.admin.products.invalidate(); utils.admin.stats.invalidate(); closeForm(); } });
-  const update = trpc.admin.updateProduct.useMutation({ onSuccess: () => { toast.success("تم تعديل المنتج"); utils.admin.products.invalidate(); utils.admin.stats.invalidate(); closeForm(); } });
+  const create = trpc.admin.createProduct.useMutation({ onSuccess: () => { toast.success("تمت إضافة المنتج وحفظه في قاعدة البيانات"); utils.admin.products.invalidate(); utils.admin.stats.invalidate(); closeForm(); }, onError: (error) => toast.error(error.message.includes("PRODUCT_ALREADY_EXISTS") ? "هذا المنتج موجود بالفعل ولا يمكن تكراره" : "تعذر حفظ المنتج") });
+  const update = trpc.admin.updateProduct.useMutation({ onSuccess: () => { toast.success("تم تعديل المنتج"); utils.admin.products.invalidate(); utils.admin.stats.invalidate(); closeForm(); }, onError: (error) => toast.error(error.message.includes("PRODUCT_ALREADY_EXISTS") ? "يوجد منتج آخر بهذا الاسم أو الرابط" : "تعذر تعديل المنتج") });
   const remove = trpc.admin.deleteProduct.useMutation({ onSuccess: () => { toast.success("تمت أرشفة المنتج"); utils.admin.products.invalidate(); utils.admin.stats.invalidate(); } });
   const updateOrder = trpc.admin.updateOrderStatus.useMutation({ onSuccess: () => { toast.success("تم تحديث حالة الطلب"); utils.admin.orders.invalidate(); utils.admin.stats.invalidate(); } });
   const saveSetting = trpc.admin.saveSetting.useMutation({ onSuccess: () => { toast.success("تم حفظ الإعداد"); utils.admin.settings.invalidate(); } });
