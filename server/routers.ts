@@ -34,7 +34,14 @@ export const appRouter = router({
     }),
     logout: publicProcedure.mutation(({ ctx }) => {
       ctx.res.clearCookie(COOKIE_NAME, { ...getSessionCookieOptions(ctx.req), maxAge: -1 });
-      if (typeof ctx.res.setHeader === "function") ctx.res.setHeader("Set-Cookie", `${LOCAL_AUTH_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${ENV.isProduction ? "; Secure" : ""}`);
+      const localCookie = `${LOCAL_AUTH_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${ENV.isProduction ? "; Secure" : ""}`;
+      if (typeof ctx.res.append === "function") {
+        ctx.res.append("Set-Cookie", localCookie);
+      } else if (typeof ctx.res.setHeader === "function") {
+        const current = typeof ctx.res.getHeader === "function" ? ctx.res.getHeader("Set-Cookie") : undefined;
+        const cookies = Array.isArray(current) ? current.map(String) : current ? [String(current)] : [];
+        ctx.res.setHeader("Set-Cookie", [...cookies, localCookie]);
+      }
       return { success: true } as const;
     }),
   }),

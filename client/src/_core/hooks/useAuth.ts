@@ -46,7 +46,6 @@ export function useAuth(options?: UseAuthOptions) {
         sessionStorage.removeItem("manus-cookie");
       } catch {}
       utils.auth.me.setData(undefined, null);
-      await utils.auth.me.invalidate();
     }
   }, [logoutMutation, utils]);
 
