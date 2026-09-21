@@ -43,7 +43,7 @@ const products: Product[] = [
 ];
 
 const money = (n: number) => `${n.toLocaleString("ar-EG")} SDG`;
-const whatsapp = "249900000000"; // Demo placeholder: editable from Settings.
+const whatsapp = "249125835738";
 
 function mapRemoteProduct(product: NonNullable<Awaited<ReturnType<typeof import("../../../server/db").listProducts>>>[number]): Product {
   return {
