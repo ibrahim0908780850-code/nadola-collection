@@ -11,6 +11,7 @@
     { "source": "/api/ping", "destination": "/api/ping.ts" },
     { "source": "/api/health", "destination": "/api/health.ts" },
     { "source": "/api/trpc/(.*)", "destination": "/api/trpc/[...trpc]" },
+    { "source": "/manus-storage/(.*)", "destination": "/api/storage/[...path]" },
     { "source": "/api/(.*)", "destination": "/api/index.ts" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
