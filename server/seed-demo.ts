@@ -3,13 +3,13 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { categories, inventory, products, settings } from "../drizzle/schema";
 
-const pool = new pg.Pool({ connectionString: process.env.SUPABASE_DATABASE_URL ?? process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const pool = new pg.Pool({ connectionString: process.env.SUPABASE_DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const db = drizzle(pool);
 const images = {
-  skincare: "/manus-storage/nadola-skincare_b2c88fad.jpg",
-  bodycare: "/manus-storage/nadola-bodycare_58dacbca.jpg",
-  moisturizers: "/manus-storage/nadola-moisturizers_5a5fa403.jpg",
-  flatlay: "/manus-storage/nadola-flatlay_17e21b5b.jpg",
+  skincare: "https://grhtwiiqsddgovvbcvju.supabase.co/storage/v1/object/public/product-images/products/skincare.jpg",
+  bodycare: "https://grhtwiiqsddgovvbcvju.supabase.co/storage/v1/object/public/product-images/products/bodycare.jpg",
+  moisturizers: "https://grhtwiiqsddgovvbcvju.supabase.co/storage/v1/object/public/product-images/products/moisturizer.jpg",
+  flatlay: "https://grhtwiiqsddgovvbcvju.supabase.co/storage/v1/object/public/product-images/products/offers.jpg",
 };
 
 const categoryRows = [

@@ -3,7 +3,7 @@ import pg from "pg";
 const { Client } = pg;
 
 export default async function handler(_req: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }) {
-  const connectionString = process.env.SUPABASE_DATABASE_URL ?? process.env.DATABASE_URL;
+  const connectionString = process.env.SUPABASE_DATABASE_URL;
   if (!connectionString) {
     res.status(503).json({ ok: false, database: "not_configured" });
     return;

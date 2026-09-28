@@ -10,6 +10,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import heroImage from "@/assets/nadola/hero.jpg";
+import skincareImage from "@/assets/nadola/skincare.jpg";
+import bodycareImage from "@/assets/nadola/bodycare.jpg";
+import moisturizerImage from "@/assets/nadola/moisturizer.jpg";
+import flatlayImage from "@/assets/nadola/offers.jpg";
 
 type Product = {
   id: number; name: string; category: string; size: string; price: number;
@@ -20,11 +25,11 @@ type Product = {
 type CartItem = Product & { quantity: number };
 
 const IMG = {
-  hero: "/manus-storage/nadola-hero_d56694ae.jpg",
-  skincare: "/manus-storage/nadola-skincare_b2c88fad.jpg",
-  bodycare: "/manus-storage/nadola-bodycare_58dacbca.jpg",
-  moisturizers: "/manus-storage/nadola-moisturizers_5a5fa403.jpg",
-  flatlay: "/manus-storage/nadola-flatlay_17e21b5b.jpg",
+  hero: heroImage,
+  skincare: skincareImage,
+  bodycare: bodycareImage,
+  moisturizers: moisturizerImage,
+  flatlay: flatlayImage,
 };
 
 const products: Product[] = [
@@ -63,11 +68,6 @@ function mapRemoteProduct(product: NonNullable<Awaited<ReturnType<typeof import(
 }
 
 export default function Home() {
-  // The useAuth hook provides authentication state.
-  // To implement login/logout, call logout(), or start login from an event
-  // handler: onClick={() => startLogin()} (imported from "@/const"). Never call
-  // startLogin() during render (no href={startLogin()}) — it mints a one-time
-  // nonce cookie and must run only at the moment of navigation.
   const { user, isAuthenticated, logout } = useAuth();
   const [, navigate] = useLocation();
   const { data: remoteProducts } = trpc.catalog.list.useQuery(undefined, { staleTime: 30_000 });

@@ -13,7 +13,7 @@ let _db: ReturnType<typeof drizzle> | null = null;
 let _pool: pg.Pool | null = null;
 
 export async function getDb() {
-  const connectionString = process.env.SUPABASE_DATABASE_URL ?? process.env.DATABASE_URL;
+  const connectionString = process.env.SUPABASE_DATABASE_URL;
   if (!_db && connectionString) {
     try {
       const normalizedConnectionString = connectionString.replace(/[?&]sslmode=(require|prefer|verify-ca|verify-full)/, "");

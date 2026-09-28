@@ -6,14 +6,13 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { supabase } from "./lib/supabase";
-import { startLogin } from "./const";
 import "./index.css";
 
 const queryClient = new QueryClient();
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError) || typeof window === "undefined") return;
-  if (error.message === UNAUTHED_ERR_MSG && window.location.pathname !== "/login") startLogin();
+  if (error.message === UNAUTHED_ERR_MSG && window.location.pathname !== "/login") window.location.href = "/login";
 };
 
 queryClient.getQueryCache().subscribe(event => {

@@ -4,8 +4,9 @@ import { ArrowRight, BarChart3, CheckCircle2, Download, ImagePlus, LayoutDashboa
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import skincareImage from "@/assets/nadola/skincare.jpg";
 
-const empty = { name: "", slug: "", categoryName: "العناية بالبشرة", size: "", price: 0, oldPrice: 0, imageUrl: "/manus-storage/nadola-skincare_b2c88fad.jpg", badge: "", description: "", ingredients: "", usage: "", stockQuantity: 0, lowStockThreshold: 5, isFeatured: true, isBestSeller: false };
+const empty = { name: "", slug: "", categoryName: "العناية بالبشرة", size: "", price: 0, oldPrice: 0, imageUrl: skincareImage, badge: "", description: "", ingredients: "", usage: "", stockQuantity: 0, lowStockThreshold: 5, isFeatured: true, isBestSeller: false };
 const statusLabels: Record<string, string> = { new: "جديد", processing: "قيد التجهيز", shipped: "تم الشحن", completed: "مكتمل", cancelled: "ملغى" };
 const productStatusLabels: Record<string, string> = { active: "نشط", draft: "مسودة", archived: "مؤرشف" };
 
