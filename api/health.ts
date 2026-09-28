@@ -3,9 +3,15 @@ import pg from "pg";
 const { Client } = pg;
 
 export default async function handler(_req: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }) {
+  const supabaseConfig = {
+    url: Boolean(process.env.VITE_SUPABASE_URL),
+    publishableKey: Boolean(process.env.VITE_SUPABASE_PUBLISHABLE_KEY),
+    serviceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    databaseUrl: Boolean(process.env.SUPABASE_DATABASE_URL),
+  };
   const rawConnectionString = process.env.SUPABASE_DATABASE_URL;
   if (!rawConnectionString) {
-    res.status(503).json({ ok: false, database: "not_configured" });
+    res.status(503).json({ ok: false, database: "not_configured", supabaseConfig });
     return;
   }
   const connectionString = rawConnectionString.replace(/[?&]sslmode=(require|prefer|verify-ca|verify-full)/, "");
@@ -19,10 +25,10 @@ export default async function handler(_req: unknown, res: { status: (code: numbe
   try {
     await client.connect();
     const result = await client.query("select 1 as ok");
-    res.status(200).json({ ok: result.rows[0]?.ok === 1, database: "connected" });
+    res.status(200).json({ ok: result.rows[0]?.ok === 1, database: "connected", supabaseConfig });
   } catch (error) {
     console.error("[Health] database check failed", error instanceof Error ? error.message : "unknown error");
-    res.status(503).json({ ok: false, database: "unavailable" });
+    res.status(503).json({ ok: false, database: "unavailable", supabaseConfig });
   } finally {
     await client.end().catch(() => undefined);
   }
