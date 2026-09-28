@@ -3,11 +3,12 @@ import pg from "pg";
 const { Client } = pg;
 
 export default async function handler(_req: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }) {
-  const connectionString = process.env.SUPABASE_DATABASE_URL;
-  if (!connectionString) {
+  const rawConnectionString = process.env.SUPABASE_DATABASE_URL;
+  if (!rawConnectionString) {
     res.status(503).json({ ok: false, database: "not_configured" });
     return;
   }
+  const connectionString = rawConnectionString.replace(/[?&]sslmode=(require|prefer|verify-ca|verify-full)/, "");
 
   const client = new Client({
     connectionString,
