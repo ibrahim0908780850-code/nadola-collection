@@ -16,7 +16,8 @@ export async function getDb() {
   const connectionString = process.env.SUPABASE_DATABASE_URL ?? process.env.DATABASE_URL;
   if (!_db && connectionString) {
     try {
-      _pool = new Pool({ connectionString, ssl: connectionString.includes("supabase") ? { rejectUnauthorized: false } : undefined, max: 5 });
+      const normalizedConnectionString = connectionString.replace(/[?&]sslmode=(require|prefer|verify-ca|verify-full)/, "");
+      _pool = new Pool({ connectionString: normalizedConnectionString, ssl: normalizedConnectionString.includes("supabase") ? { rejectUnauthorized: false } : undefined, max: 5 });
       _db = drizzle(_pool);
     }
     catch (error) { console.warn("[Database] Failed to connect:", error); _db = null; }
