@@ -1,4 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { appRouter } from "../server/routers";
+import { createContext } from "../server/_core/context";
 
 async function toRequest(req: IncomingMessage) {
   const protocol = (req.headers["x-forwarded-proto"] as string | undefined) ?? "https";
@@ -17,11 +20,6 @@ async function toRequest(req: IncomingMessage) {
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   try {
-    const [{ fetchRequestHandler }, { appRouter }, { createContext }] = await Promise.all([
-      import("@trpc/server/adapters/fetch"),
-      import("../server/routers"),
-      import("../server/_core/context"),
-    ]);
     const response = await fetchRequestHandler({
       endpoint: "/api/trpc",
       req: await toRequest(req),
@@ -35,6 +33,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     console.error("[Vercel tRPC] request failed", error);
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ error: "API request failed", detail: error instanceof Error ? error.message : String(error) }));
+    res.end(JSON.stringify({ error: "API request failed" }));
   }
 }
