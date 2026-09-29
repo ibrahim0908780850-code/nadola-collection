@@ -1,21 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { createExpressMiddleware } from "@trpc/server/adapters/express";
+import { createHTTPHandler } from "@trpc/server/adapters/standalone";
 import { appRouter } from "../server/routers";
 import { createContext } from "../server/_core/context";
 
-type ExpressRequest = IncomingMessage & { path?: string };
-
-const trpcHandler = createExpressMiddleware({
+const trpcHandler = createHTTPHandler({
   router: appRouter,
-  createContext,
+  basePath: "/api/trpc/",
+  createContext: (opts) => createContext(opts as never),
 });
 
 export default function handler(req: IncomingMessage, res: ServerResponse) {
-  const expressRequest = req as ExpressRequest;
-  expressRequest.path = (req.url ?? "/").split("?", 1)[0];
-  return trpcHandler(req as never, res as never, () => {
-    res.statusCode = 404;
-    res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ error: "tRPC route not found" }));
-  });
+  return trpcHandler(req, res);
 }
