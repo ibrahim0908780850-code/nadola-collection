@@ -9,6 +9,8 @@ const trpcHandler = createExpressMiddleware({
 });
 
 export default function handler(req: IncomingMessage, res: ServerResponse) {
+  const expressRequest = req as IncomingMessage & { path?: string };
+  expressRequest.path = (req.url ?? "/").split("?", 1)[0];
   return trpcHandler(req as never, res as never, () => {
     res.statusCode = 404;
     res.setHeader("Content-Type", "application/json");
