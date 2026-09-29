@@ -8,8 +8,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if (!cachedHandler) {
       const [{ createHTTPHandler }, { appRouter }, { createContext }] = await Promise.all([
         import("@trpc/server/adapters/standalone"),
-        import("../../server/routers"),
-        import("../../server/_core/context"),
+        import("../server/routers"),
+        import("../server/_core/context"),
       ]);
       cachedHandler = createHTTPHandler({
         router: appRouter,
