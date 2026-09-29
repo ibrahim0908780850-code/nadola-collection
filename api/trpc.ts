@@ -25,6 +25,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if (response.headersSent) return;
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ error: { message: "تعذر تشغيل خدمة المصادقة حالياً", code: "INTERNAL_SERVER_ERROR" } }));
+    res.end(JSON.stringify({
+      error: {
+        message: "تعذر تشغيل خدمة المصادقة حالياً",
+        code: -32603,
+        data: { code: "INTERNAL_SERVER_ERROR", httpStatus: 500 },
+      },
+    }));
   }
 }
