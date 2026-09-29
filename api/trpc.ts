@@ -23,11 +23,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     console.error("[Vercel tRPC] handler failed", error);
     const response = res as VercelResponse;
     if (response.headersSent) return;
+    const detail = error instanceof Error ? error.message : String(error);
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({
       error: {
-        message: "تعذر تشغيل خدمة المصادقة حالياً",
+        message: `تعذر تشغيل خدمة المصادقة: ${detail}`,
         code: -32603,
         data: { code: "INTERNAL_SERVER_ERROR", httpStatus: 500 },
       },
