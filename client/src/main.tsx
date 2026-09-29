@@ -3,7 +3,6 @@ import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
-import superjson from "superjson";
 import App from "./App";
 import { supabase } from "./lib/supabase";
 import "./index.css";
@@ -25,7 +24,6 @@ queryClient.getMutationCache().subscribe(event => {
 const trpcClient = trpc.createClient({
   links: [httpBatchLink({
     url: "/api/trpc",
-    transformer: superjson,
     async headers() {
       const { data } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
       return data.session?.access_token ? { Authorization: `Bearer ${data.session.access_token}` } : {};
