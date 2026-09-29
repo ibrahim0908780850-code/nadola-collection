@@ -3,7 +3,7 @@ import pg from "pg";
 
 const { Client } = pg;
 
-describe("Supabase connection secret", () => {
+describe.skipIf(!process.env.SUPABASE_DATABASE_URL)("Supabase connection secret", () => {
   it("can execute a lightweight SELECT 1 against the Supabase Session Pooler", async () => {
     const url = process.env.SUPABASE_DATABASE_URL;
     expect(url).toMatch(/aws-1-eu-west-1\.pooler\.supabase\.com:(5432|6543)/);

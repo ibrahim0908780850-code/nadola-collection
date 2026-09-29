@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getDashboardStats, listProducts } from "./db";
 
-describe("Nadola catalog persistence", () => {
+describe.skipIf(!process.env.SUPABASE_SERVICE_ROLE_KEY)("Nadola catalog persistence", () => {
   it("returns a safe list shape for the public catalog", async () => {
     const result = await listProducts();
     expect(Array.isArray(result)).toBe(true);
