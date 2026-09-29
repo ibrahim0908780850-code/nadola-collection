@@ -12,7 +12,11 @@ export type TrpcContext = {
 
 function bearerToken(req: CreateExpressContextOptions["req"]) {
   const header = req.headers.authorization;
-  return header?.startsWith("Bearer ") ? header.slice(7) : undefined;
+  const fetchHeader = typeof (req.headers as unknown as { get?: (name: string) => string | null }).get === "function"
+    ? (req.headers as unknown as { get: (name: string) => string | null }).get("authorization")
+    : undefined;
+  const value = header ?? fetchHeader ?? undefined;
+  return value?.startsWith("Bearer ") ? value.slice(7) : undefined;
 }
 
 async function authenticateSupabase(req: CreateExpressContextOptions["req"]): Promise<User | undefined> {
