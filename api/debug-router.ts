@@ -1,5 +1,5 @@
-import { appRouter } from "../server/routers";
+import { getDb } from "../server/db";
 
 export default function handler(_req: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }) {
-  res.status(200).json({ ok: Boolean(appRouter) });
+  res.status(200).json({ ok: Boolean(getDb) });
 }
