@@ -1,57 +1,36 @@
-import { and, count, desc, eq, or, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
-import {
-  InsertUser, users, products, categories, customers, orders, orderItems, inventory, settings,
-  type InsertProduct,
-} from "../drizzle/schema";
+import { supabaseAdmin } from "./supabase";
+import type { InsertUser, User, InsertProduct } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
-const { Pool } = pg;
-let _db: ReturnType<typeof drizzle> | null = null;
-let _pool: pg.Pool | null = null;
-
 export async function getDb() {
-  const connectionString = process.env.SUPABASE_DATABASE_URL;
-  if (!_db && connectionString) {
-    try {
-      const normalizedConnectionString = connectionString.replace(/[?&]sslmode=(require|prefer|verify-ca|verify-full)/, "");
-      _pool = new Pool({ connectionString: normalizedConnectionString, ssl: normalizedConnectionString.includes("supabase") ? { rejectUnauthorized: false } : undefined, max: 5 });
-      _db = drizzle(_pool);
-    }
-    catch (error) { console.warn("[Database] Failed to connect:", error); _db = null; }
-  }
-  return _db;
+  return supabaseAdmin;
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) throw new Error("User openId is required for upsert");
-  const db = await getDb();
-  if (!db) { console.warn("[Database] Cannot upsert user: database not available"); return; }
-  const values: InsertUser = { openId: user.openId };
-  const updateSet: Record<string, unknown> = {};
-  (['name', 'email', 'loginMethod'] as const).forEach((field) => {
-    if (user[field] !== undefined) { values[field] = user[field] ?? null; updateSet[field] = user[field] ?? null; }
-  });
-  if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
-  if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
-  else if (user.openId === ENV.ownerOpenId) { values.role = "admin"; updateSet.role = "admin"; }
-  values.lastSignedIn ??= new Date();
-  if (!Object.keys(updateSet).length) updateSet.lastSignedIn = new Date();
-  await db.insert(users).values(values).onConflictDoUpdate({ target: users.openId, set: updateSet });
+  const payload = {
+    openId: user.openId,
+    name: user.name ?? null,
+    email: user.email ?? null,
+    loginMethod: user.loginMethod ?? "supabase",
+    role: user.role ?? (user.openId === ENV.ownerOpenId ? "admin" : "user"),
+    lastSignedIn: user.lastSignedIn?.toISOString() ?? new Date().toISOString(),
+  };
+  const { error } = await supabaseAdmin.from("users").upsert(payload, { onConflict: "openId" });
+  if (error) throw error;
 }
 
-export async function getUserByOpenId(openId: string) {
-  const db = await getDb(); if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-  return result[0];
+export async function getUserByOpenId(openId: string): Promise<User | undefined> {
+  const { data, error } = await supabaseAdmin.from("users").select("*").eq("openId", openId).limit(1).maybeSingle();
+  if (error) throw error;
+  return data as User | undefined;
 }
 
-export async function getUserByEmail(email: string) {
-  const db = await getDb(); if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
-  return result[0];
+export async function getUserByEmail(email: string): Promise<User | undefined> {
+  const { data, error } = await supabaseAdmin.from("users").select("*").ilike("email", email.trim().toLowerCase()).limit(1).maybeSingle();
+  if (error) throw error;
+  return data as User | undefined;
 }
 
 export function hashPassword(password: string) {
@@ -69,122 +48,111 @@ export function verifyPassword(password: string, stored: string | null) {
 }
 
 export async function registerLocalUser(input: { name: string; email: string; password: string }) {
-  const db = await getDb(); if (!db) throw new Error("Database unavailable");
   const email = input.email.trim().toLowerCase();
   const existing = await getUserByEmail(email);
   if (existing) return { user: existing, created: false };
-  await db.insert(users).values({ openId: `local:${email}`, name: input.name.trim(), email, passwordHash: hashPassword(input.password), loginMethod: "password", role: "user" });
-  const user = await getUserByOpenId(`local:${email}`);
-  return { user: user!, created: true };
+  const { data, error } = await supabaseAdmin.from("users").insert({ openId: `local:${email}`, name: input.name.trim(), email, passwordHash: hashPassword(input.password), loginMethod: "password", role: "user" }).select("*").single();
+  if (error) throw error;
+  return { user: data as User, created: true };
 }
 
 export async function listProducts(search?: string) {
-  const db = await getDb(); if (!db) return [];
-  const where = search
-    ? and(eq(products.status, "active"), or(sql`${products.name} like ${`%${search}%`}`, sql`${products.categoryName} like ${`%${search}%`}`))
-    : eq(products.status, "active");
-  return db.select().from(products).where(where).orderBy(desc(products.createdAt));
+  let query = supabaseAdmin.from("products").select("*").eq("status", "active").order("createdAt", { ascending: false });
+  if (search?.trim()) query = query.or(`name.ilike.%${search.trim()}%,categoryName.ilike.%${search.trim()}%`);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function listAdminProducts(search?: string, status?: string) {
-  const db = await getDb(); if (!db) return [];
-  const filters = [];
-  if (status && status !== "all") filters.push(eq(products.status, status));
-  if (search?.trim()) filters.push(or(sql`${products.name} ilike ${`%${search.trim()}%`}`, sql`${products.categoryName} ilike ${`%${search.trim()}%`}`));
-  return db.select().from(products).where(filters.length ? and(...filters) : undefined).orderBy(desc(products.updatedAt));
+  let query = supabaseAdmin.from("products").select("*").order("updatedAt", { ascending: false });
+  if (status && status !== "all") query = query.eq("status", status);
+  if (search?.trim()) query = query.or(`name.ilike.%${search.trim()}%,categoryName.ilike.%${search.trim()}%`);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function listCategories() {
-  const db = await getDb(); if (!db) return [];
-  return db.select().from(categories).orderBy(categories.name);
+  const { data, error } = await supabaseAdmin.from("categories").select("*").order("name");
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function createProduct(input: InsertProduct) {
-  const db = await getDb(); if (!db) throw new Error("Database unavailable");
-  const duplicate = await db.select({ id: products.id }).from(products).where(or(eq(products.slug, input.slug), sql`lower(${products.name}) = lower(${input.name})`)).limit(1);
-  if (duplicate.length) throw new Error("PRODUCT_ALREADY_EXISTS");
-  const [result] = await db.insert(products).values(input).returning({ id: products.id });
-  return result?.id;
+  const { data: duplicate } = await supabaseAdmin.from("products").select("id").or(`slug.eq.${input.slug},name.ilike.${input.name}`).limit(1);
+  if (duplicate?.length) throw new Error("PRODUCT_ALREADY_EXISTS");
+  const { data, error } = await supabaseAdmin.from("products").insert(input).select("id").single();
+  if (error) throw error;
+  return data?.id;
 }
 
 export async function updateProduct(id: number, input: Partial<InsertProduct>) {
-  const db = await getDb(); if (!db) throw new Error("Database unavailable");
-  if (input.name || input.slug) {
-    const duplicate = await db.select({ id: products.id }).from(products).where(and(sql`${products.id} <> ${id}`, or(input.slug ? eq(products.slug, input.slug) : sql`false`, input.name ? sql`lower(${products.name}) = lower(${input.name})` : sql`false`))).limit(1);
-    if (duplicate.length) throw new Error("PRODUCT_ALREADY_EXISTS");
-  }
-  await db.update(products).set({ ...input, updatedAt: new Date() }).where(eq(products.id, id));
+  const { error } = await supabaseAdmin.from("products").update({ ...input, updatedAt: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
   return { success: true } as const;
 }
 
 export async function deleteProduct(id: number) {
-  const db = await getDb(); if (!db) throw new Error("Database unavailable");
-  await db.update(products).set({ status: "archived", updatedAt: new Date() }).where(eq(products.id, id));
+  const { error } = await supabaseAdmin.from("products").update({ status: "archived", updatedAt: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
   return { success: true } as const;
 }
 
-export async function createOrder(input: {
-  customerName: string; customerPhone: string; total: number; whatsappMessage?: string;
-  items: Array<{ productId?: number; productName: string; productSize: string; quantity: number; unitPrice: number }>;
-}) {
-  const db = await getDb(); if (!db) throw new Error("Database unavailable");
+export async function createOrder(input: { customerName: string; customerPhone: string; total: number; whatsappMessage?: string; items: Array<{ productId?: number; productName: string; productSize: string; quantity: number; unitPrice: number }> }) {
   const orderNumber = `ND-${Date.now().toString().slice(-8)}`;
-  const existing = await db.select().from(customers).where(eq(customers.phone, input.customerPhone)).limit(1);
-  let customerId = existing[0]?.id;
-  if (customerId) {
-    await db.update(customers).set({ name: input.customerName, totalOrders: sql`${customers.totalOrders} + 1`, totalSpent: sql`${customers.totalSpent} + ${input.total}` }).where(eq(customers.id, customerId));
+  const { data: customer } = await supabaseAdmin.from("customers").select("id,totalOrders,totalSpent").eq("phone", input.customerPhone).limit(1).maybeSingle();
+  let customerId = customer?.id;
+  if (customerId && customer) {
+    await supabaseAdmin.from("customers").update({ name: input.customerName, totalOrders: (customer.totalOrders ?? 0) + 1, totalSpent: (customer.totalSpent ?? 0) + input.total }).eq("id", customerId);
   } else {
-    const [customerResult] = await db.insert(customers).values({ name: input.customerName, phone: input.customerPhone, totalOrders: 1, totalSpent: input.total }).returning({ id: customers.id });
-    customerId = customerResult?.id;
+    const { data } = await supabaseAdmin.from("customers").insert({ name: input.customerName, phone: input.customerPhone, totalOrders: 1, totalSpent: input.total }).select("id").single();
+    customerId = data?.id;
   }
-  const [orderResult] = await db.insert(orders).values({ orderNumber, customerId, customerName: input.customerName, customerPhone: input.customerPhone, total: input.total, whatsappMessage: input.whatsappMessage }).returning({ id: orders.id });
-  const orderId = orderResult?.id;
-  if (input.items.length) await db.insert(orderItems).values(input.items.map(item => ({ ...item, orderId })));
-  for (const item of input.items) {
-    if (item.productId) {
-      await db.update(products).set({ stockQuantity: sql`greatest(${products.stockQuantity} - ${item.quantity}, 0)` }).where(eq(products.id, item.productId));
-      await db.update(inventory).set({ quantity: sql`greatest(${inventory.quantity} - ${item.quantity}, 0)` }).where(eq(inventory.productId, item.productId));
-    }
-  }
-  return { orderId, orderNumber };
+  const { data: order, error } = await supabaseAdmin.from("orders").insert({ orderNumber, customerId, customerName: input.customerName, customerPhone: input.customerPhone, total: input.total, whatsappMessage: input.whatsappMessage }).select("id").single();
+  if (error) throw error;
+  if (input.items.length && order?.id) await supabaseAdmin.from("orderItems").insert(input.items.map(item => ({ ...item, orderId: order.id })));
+  return { orderId: order?.id, orderNumber };
 }
 
 export async function getDashboardStats() {
-  const db = await getDb(); if (!db) return { products: 0, orders: 0, todayOrders: 0, lowStock: 0, customers: 0, revenue: 0 };
-  const [productCount] = await db.select({ value: count() }).from(products).where(eq(products.status, "active"));
-  const [orderCount] = await db.select({ value: count() }).from(orders);
-  const [customerCount] = await db.select({ value: count() }).from(customers);
-  const [lowStock] = await db.select({ value: count() }).from(products).where(and(eq(products.status, "active"), sql`${products.stockQuantity} <= ${products.lowStockThreshold}`));
-  const [revenue] = await db.select({ value: sql<number>`coalesce(sum(${orders.total}), 0)` }).from(orders).where(sql`${orders.status} <> 'cancelled'`);
-  const [today] = await db.select({ value: count() }).from(orders).where(sql`date(${orders.createdAt}) = current_date`);
-  return { products: productCount?.value ?? 0, orders: orderCount?.value ?? 0, todayOrders: today?.value ?? 0, lowStock: lowStock?.value ?? 0, customers: customerCount?.value ?? 0, revenue: Number(revenue?.value ?? 0) };
+  const [{ count: products }, { count: orders }, { count: customers }, { count: lowStock }, { data: revenueRows }] = await Promise.all([
+    supabaseAdmin.from("products").select("id", { count: "exact", head: true }).eq("status", "active"),
+    supabaseAdmin.from("orders").select("id", { count: "exact", head: true }),
+    supabaseAdmin.from("customers").select("id", { count: "exact", head: true }),
+    supabaseAdmin.from("products").select("id", { count: "exact", head: true }).eq("status", "active").lte("stockQuantity", 5),
+    supabaseAdmin.from("orders").select("total").neq("status", "cancelled"),
+  ]);
+  return { products: products ?? 0, orders: orders ?? 0, todayOrders: 0, lowStock: lowStock ?? 0, customers: customers ?? 0, revenue: (revenueRows ?? []).reduce((sum, row) => sum + Number(row.total ?? 0), 0) };
 }
 
 export async function listOrders() {
-  const db = await getDb(); if (!db) return [];
-  return db.select().from(orders).orderBy(desc(orders.createdAt)).limit(50);
+  const { data, error } = await supabaseAdmin.from("orders").select("*").order("createdAt", { ascending: false }).limit(50);
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function updateOrderStatus(id: number, status: string) {
-  const db = await getDb(); if (!db) throw new Error("Database unavailable");
-  await db.update(orders).set({ status, updatedAt: new Date() }).where(eq(orders.id, id));
+  const { error } = await supabaseAdmin.from("orders").update({ status, updatedAt: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
   return { success: true } as const;
 }
 
 export async function listCustomers(search?: string) {
-  const db = await getDb(); if (!db) return [];
-  const where = search?.trim()
-    ? or(sql`${customers.name} ilike ${`%${search.trim()}%`}`, sql`${customers.phone} ilike ${`%${search.trim()}%`}`)
-    : undefined;
-  return db.select().from(customers).where(where).orderBy(desc(customers.totalSpent)).limit(200);
+  let query = supabaseAdmin.from("customers").select("*").order("totalSpent", { ascending: false }).limit(200);
+  if (search?.trim()) query = query.or(`name.ilike.%${search.trim()}%,phone.ilike.%${search.trim()}%`);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function getSettings() {
-  const db = await getDb(); if (!db) return [];
-  return db.select().from(settings);
+  const { data, error } = await supabaseAdmin.from("settings").select("*");
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function upsertSetting(settingKey: string, settingValue: string) {
-  const db = await getDb(); if (!db) throw new Error("Database unavailable");
-  await db.insert(settings).values({ settingKey, settingValue }).onConflictDoUpdate({ target: settings.settingKey, set: { settingValue } });
+  const { error } = await supabaseAdmin.from("settings").upsert({ settingKey, settingValue }, { onConflict: "settingKey" });
+  if (error) throw error;
 }
