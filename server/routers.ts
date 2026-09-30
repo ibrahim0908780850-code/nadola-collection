@@ -12,7 +12,7 @@ export const appRouter = router({
     logout: publicProcedure.mutation(() => ({ success: true } as const)),
   }),
   catalog: router({ list: publicProcedure.input(z.object({ search: z.string().optional() }).optional()).query(({ input }) => listProducts(input?.search)), categories: publicProcedure.query(() => listCategories()) }),
-  orders: router({ create: publicProcedure.input(z.object({ customerName: z.string().min(2), customerPhone: z.string().min(6), total: z.number().int().nonnegative(), whatsappMessage: z.string().optional(), items: z.array(z.object({ productId: z.number().optional(), productName: z.string(), productSize: z.string(), quantity: z.number().int().positive(), unitPrice: z.number().int().nonnegative() })).min(1) })).mutation(({ input }) => createOrder(input)) }),
+  orders: router({ create: publicProcedure.input(z.object({ customerName: z.string().min(2), customerPhone: z.string().min(6), total: z.number().int().nonnegative(), whatsappMessage: z.string().optional(), items: z.array(z.object({ productId: z.number().int().positive(), productName: z.string(), productSize: z.string(), quantity: z.number().int().positive(), unitPrice: z.number().int().nonnegative() })).min(1) })).mutation(({ input }) => createOrder(input)) }),
   admin: router({
     stats: adminProcedure.query(() => getDashboardStats()), orders: adminProcedure.query(() => listOrders()), customers: adminProcedure.input(z.object({ search: z.string().optional() }).optional()).query(({ input }) => listCustomers(input?.search)), settings: adminProcedure.query(() => getSettings()), products: adminProcedure.input(z.object({ search: z.string().optional(), status: z.string().optional() }).optional()).query(({ input }) => listAdminProducts(input?.search, input?.status)),
     createProduct: adminProcedure.input(productInput).mutation(({ input }) => createProduct(input)),
@@ -24,7 +24,7 @@ export const appRouter = router({
     }),
     updateProduct: adminProcedure.input(z.object({ id: z.number().int(), data: productInput.partial() })).mutation(({ input }) => updateProduct(input.id, input.data)),
     deleteProduct: adminProcedure.input(z.object({ id: z.number().int() })).mutation(({ input }) => deleteProduct(input.id)),
-    updateOrderStatus: adminProcedure.input(z.object({ id: z.number().int(), status: z.enum(["new", "processing", "shipped", "completed", "cancelled"]) })).mutation(({ input }) => updateOrderStatus(input.id, input.status)),
+    updateOrderStatus: adminProcedure.input(z.object({ id: z.number().int(), status: z.enum(["new", "contacted", "confirmed", "preparing", "shipped", "delivered", "cancelled"]) })).mutation(({ input }) => updateOrderStatus(input.id, input.status)),
     saveSetting: adminProcedure.input(z.object({ key: z.string().min(2), value: z.string() })).mutation(({ input }) => upsertSetting(input.key, input.value)),
   }),
 });

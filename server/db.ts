@@ -167,7 +167,7 @@ export async function createOrder(input: {
   total: number;
   whatsappMessage?: string;
   items: Array<{
-    productId?: number;
+    productId: number;
     productName: string;
     productSize: string;
     quantity: number;
@@ -175,6 +175,26 @@ export async function createOrder(input: {
   }>;
 }) {
   const orderNumber = `ND-${Date.now().toString().slice(-8)}`;
+  const productIds = Array.from(new Set(input.items.map(item => item.productId)));
+  const { data: products, error: productsError } = await supabaseAdmin
+    .from("products")
+    .select("id,name,size,price,status")
+    .in("id", productIds)
+    .eq("status", "active");
+  if (productsError) throw productsError;
+  const productsById = new Map((products ?? []).map(product => [product.id, product]));
+  const items = input.items.map(item => {
+    const product = productsById.get(item.productId);
+    if (!product) throw new Error("PRODUCT_NOT_AVAILABLE");
+    return {
+      productId: product.id,
+      productName: product.name,
+      productSize: product.size,
+      quantity: item.quantity,
+      unitPrice: product.price,
+    };
+  });
+  const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const { data: customer } = await supabaseAdmin
     .from("customers")
     .select("id,totalOrders,totalSpent")
@@ -188,7 +208,7 @@ export async function createOrder(input: {
       .update({
         name: input.customerName,
         totalOrders: (customer.totalOrders ?? 0) + 1,
-        totalSpent: (customer.totalSpent ?? 0) + input.total,
+        totalSpent: (customer.totalSpent ?? 0) + total,
       })
       .eq("id", customerId);
   } else {
@@ -198,7 +218,7 @@ export async function createOrder(input: {
         name: input.customerName,
         phone: input.customerPhone,
         totalOrders: 1,
-        totalSpent: input.total,
+        totalSpent: total,
       })
       .select("id")
       .single();
@@ -211,16 +231,16 @@ export async function createOrder(input: {
       customerId,
       customerName: input.customerName,
       customerPhone: input.customerPhone,
-      total: input.total,
+      total,
       whatsappMessage: input.whatsappMessage,
     })
     .select("id")
     .single();
   if (error) throw error;
-  if (input.items.length && order?.id) {
+  if (items.length && order?.id) {
     const { error: itemsError } = await supabaseAdmin
       .from("order_items")
-      .insert(input.items.map(item => ({ ...item, orderId: order.id })));
+      .insert(items.map(item => ({ ...item, orderId: order.id })));
     if (itemsError) throw itemsError;
   }
   return { orderId: order?.id, orderNumber };

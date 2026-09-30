@@ -61,12 +61,14 @@ async function authenticate(headers: Headers): Promise<User | null> {
 export async function createContext(opts: CreateExpressContextOptions): Promise<TrpcContext> {
   let user: User | null = null;
   try {
+    const headers: Array<[string, string]> = Object.entries(opts.req.headers).flatMap(
+      ([key, value]): Array<[string, string]> =>
+        value === undefined
+          ? []
+          : [[key, Array.isArray(value) ? value.join(", ") : value]]
+    );
     user = await authenticate(
-      new Headers(
-        Object.entries(opts.req.headers).flatMap(([key, value]) =>
-          value === undefined ? [] : [[key, Array.isArray(value) ? value.join(", ") : value]]
-        )
-      )
+      new Headers(headers)
     );
   } catch (error) {
     console.error("[Auth] context authentication failed", error);
