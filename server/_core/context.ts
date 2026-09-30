@@ -1,47 +1,89 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
+import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import type { User } from "../../drizzle/schema";
 import { getUserByOpenId, upsertUser } from "../db";
 import { ENV } from "./env";
 import { getSupabaseUser } from "../supabase";
 
 export type TrpcContext = {
-  req: CreateExpressContextOptions["req"];
-  res: CreateExpressContextOptions["res"];
+  req: CreateExpressContextOptions["req"] | Request;
+  res?: CreateExpressContextOptions["res"];
+  resHeaders?: Headers;
   user: User | null;
 };
 
-function bearerToken(req: CreateExpressContextOptions["req"]) {
-  const header = req.headers.authorization;
-  const fetchHeader = typeof (req.headers as unknown as { get?: (name: string) => string | null }).get === "function"
-    ? (req.headers as unknown as { get: (name: string) => string | null }).get("authorization")
-    : undefined;
-  const value = header ?? fetchHeader ?? undefined;
-  return value?.startsWith("Bearer ") ? value.slice(7) : undefined;
+function authorizationHeader(headers: Headers): string | undefined {
+  const value = headers.get("authorization");
+  return value?.startsWith("Bearer ") ? value.slice(7).trim() : undefined;
 }
 
-async function authenticateSupabase(req: CreateExpressContextOptions["req"]): Promise<User | undefined> {
-  const token = bearerToken(req);
-  if (!token) return undefined;
+export function bearerTokenFromHeaders(headers: Headers) {
+  return authorizationHeader(headers);
+}
+
+function ownerIsAdmin(email: string | undefined) {
+  const ownerEmail = ENV.ownerEmail.trim().toLowerCase();
+  return Boolean(ownerEmail && email?.trim().toLowerCase() === ownerEmail);
+}
+
+async function authenticate(headers: Headers): Promise<User | null> {
+  const token = authorizationHeader(headers);
+  if (!token) return null;
+
   const authUser = await getSupabaseUser(token);
-  if (!authUser?.id) return undefined;
+  if (!authUser?.id) return null;
+
   const openId = `supabase:${authUser.id}`;
-  const existing = await getUserByOpenId(openId);
-  if (!existing) {
+  try {
+    const existing = await getUserByOpenId(openId);
+    if (existing) return existing;
+
     await upsertUser({
       openId,
       email: authUser.email ?? null,
-      name: (authUser.user_metadata?.full_name as string | undefined) ?? (authUser.user_metadata?.name as string | undefined) ?? null,
+      name:
+        (authUser.user_metadata?.full_name as string | undefined) ??
+        (authUser.user_metadata?.name as string | undefined) ??
+        null,
       loginMethod: "supabase",
-      role: ENV.ownerEmail && authUser.email === ENV.ownerEmail ? "admin" : "user",
+      role: ownerIsAdmin(authUser.email) ? "admin" : "user",
       lastSignedIn: new Date(),
     });
-    return getUserByOpenId(openId);
+    const created = await getUserByOpenId(openId);
+    if (!created) throw new Error("User profile was not returned after creation");
+    return created;
+  } catch (error) {
+    console.error("[Auth] user profile synchronization failed", error);
+    throw error;
   }
-  return existing;
 }
 
 export async function createContext(opts: CreateExpressContextOptions): Promise<TrpcContext> {
   let user: User | null = null;
-  try { user = await authenticateSupabase(opts.req) ?? null; } catch { user = null; }
+  try {
+    user = await authenticate(
+      new Headers(
+        Object.entries(opts.req.headers).flatMap(([key, value]) =>
+          value === undefined ? [] : [[key, Array.isArray(value) ? value.join(", ") : value]]
+        )
+      )
+    );
+  } catch (error) {
+    console.error("[Auth] context authentication failed", error);
+  }
   return { req: opts.req, res: opts.res, user };
+}
+
+export async function createFetchContext({
+  req,
+  resHeaders,
+}: FetchCreateContextFnOptions): Promise<TrpcContext> {
+  let user: User | null = null;
+  try {
+    user = await authenticate(req.headers);
+  } catch (error) {
+    console.error("[Auth] context authentication failed", error);
+    throw error;
+  }
+  return { req, resHeaders, user };
 }

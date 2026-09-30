@@ -2,11 +2,14 @@ import pg from "pg";
 
 const { Client } = pg;
 
-export default async function handler(_req: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }) {
+export default async function handler(
+  _req: unknown,
+  res: { status: (code: number) => { json: (body: unknown) => void } }
+) {
   const supabaseConfig = {
-    url: Boolean(process.env.VITE_SUPABASE_URL),
+    url: Boolean(process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL),
     publishableKey: Boolean(process.env.VITE_SUPABASE_PUBLISHABLE_KEY),
-    serviceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    secretKey: Boolean(process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY),
     databaseUrl: Boolean(process.env.SUPABASE_DATABASE_URL),
   };
   const rawConnectionString = process.env.SUPABASE_DATABASE_URL;
@@ -15,13 +18,11 @@ export default async function handler(_req: unknown, res: { status: (code: numbe
     return;
   }
   const connectionString = rawConnectionString.replace(/[?&]sslmode=(require|prefer|verify-ca|verify-full)/, "");
-
   const client = new Client({
     connectionString,
     connectionTimeoutMillis: 12_000,
     ssl: connectionString.includes("supabase") ? { rejectUnauthorized: false } : undefined,
   });
-
   try {
     await client.connect();
     const result = await client.query("select 1 as ok");

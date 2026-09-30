@@ -5,11 +5,13 @@
   "functions": {
     "api/index.ts": {
       "includeFiles": "dist/public/**"
-    }
+    },
+    "api/trpc.ts": {}
   },
   "rewrites": [
     { "source": "/api/ping", "destination": "/api/ping.ts" },
     { "source": "/api/health", "destination": "/api/health.ts" },
+    { "source": "/api/trpc", "destination": "/api/trpc.ts" },
     { "source": "/api/trpc/(.*)", "destination": "/api/trpc.ts" },
     { "source": "/api/(.*)", "destination": "/api/index.ts" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
