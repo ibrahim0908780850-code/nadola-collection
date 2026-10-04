@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { motion, AnimatePresence } from "framer-motion";
@@ -70,7 +70,8 @@ function mapRemoteProduct(product: NonNullable<Awaited<ReturnType<typeof import(
 export default function Home() {
   const { user, isAuthenticated, logout } = useAuth();
   const [, navigate] = useLocation();
-  const { data: remoteProducts } = trpc.catalog.list.useQuery(undefined, { staleTime: 30_000 });
+  const [remoteProducts, setRemoteProducts] = useState<any[] | null>(null);
+  useEffect(() => { fetch("/api/catalog").then(response => response.ok ? response.json() : null).then(result => { if (result?.products) setRemoteProducts(result.products); }).catch(() => undefined); }, []);
   const { data: adminStats } = trpc.admin.stats.useQuery(undefined, { enabled: isAuthenticated, retry: false });
 
   const [cart, setCart] = useState<CartItem[]>([]);

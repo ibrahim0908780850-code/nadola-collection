@@ -11,6 +11,7 @@
     { "source": "/api/ping", "destination": "/api/ping.ts" },
     { "source": "/api/health", "destination": "/api/health.ts" },
     { "source": "/api/profile", "destination": "/api/profile.ts" },
+    { "source": "/api/catalog", "destination": "/api/catalog.ts" },
     { "source": "/api/admin", "destination": "/api/admin.ts" },
     { "source": "/api/admin/(.*)", "destination": "/api/admin.ts" },
     { "source": "/api/trpc", "destination": "/api/trpc.ts" },
