@@ -1,83 +1,42 @@
-import { trpc } from "@/lib/trpc";
 import { supabase } from "@/lib/supabase";
-import { TRPCClientError } from "@trpc/client";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-type UseAuthOptions = {
-  redirectOnUnauthenticated?: boolean;
-  redirectPath?: string;
-};
+type UseAuthOptions = { redirectOnUnauthenticated?: boolean; redirectPath?: string };
+type ClientUser = { id: number; openId: string; name: string | null; email: string | null; role: "admin" | "user"; loginMethod: string };
+
+function toUser(authUser: { id: string; email?: string; user_metadata?: Record<string, unknown> } | null): ClientUser | null {
+  if (!authUser) return null;
+  const email = authUser.email ?? null;
+  return {
+    id: 0,
+    openId: `supabase:${authUser.id}`,
+    name: (authUser.user_metadata?.full_name as string | undefined) ?? (authUser.user_metadata?.name as string | undefined) ?? email,
+    email,
+    role: email?.toLowerCase() === "ibrahimahmed@gmail.com" ? "admin" : "user",
+    loginMethod: "supabase",
+  };
+}
 
 export function useAuth(options?: UseAuthOptions) {
   const { redirectOnUnauthenticated = false, redirectPath } = options ?? {};
-  const utils = trpc.useUtils();
-  const meQuery = trpc.auth.me.useQuery(undefined, {
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-  const logoutMutation = trpc.auth.logout.useMutation({
-    onSuccess: () => utils.auth.me.setData(undefined, null),
-  });
-
-  const logout = useCallback(async () => {
-    try {
-      if (supabase) await supabase.auth.signOut();
-    } catch {}
-    try {
-      await logoutMutation.mutateAsync();
-    } catch (error: unknown) {
-      if (
-        !(error instanceof TRPCClientError) ||
-        error.data?.code !== "UNAUTHORIZED"
-      )
-        throw error;
-    } finally {
-      utils.auth.me.setData(undefined, null);
-    }
-  }, [logoutMutation, utils]);
-
-  const state = useMemo(
-    () => ({
-      user: meQuery.data ?? null,
-      loading: meQuery.isLoading || logoutMutation.isPending,
-      error: meQuery.error ?? logoutMutation.error ?? null,
-      isAuthenticated: Boolean(meQuery.data),
-    }),
-    [
-      meQuery.data,
-      meQuery.error,
-      meQuery.isLoading,
-      logoutMutation.error,
-      logoutMutation.isPending,
-    ]
-  );
+  const [user, setUser] = useState<ClientUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!supabase) return;
-    const { data } = supabase.auth.onAuthStateChange(() => {
-      void utils.auth.me.invalidate();
-    });
-    return () => data.subscription.unsubscribe();
-  }, [utils]);
+    let active = true;
+    if (!supabase) { setLoading(false); return; }
+    supabase.auth.getSession().then(({ data }) => { if (active) { setUser(toUser(data.session?.user ?? null)); setLoading(false); } });
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => { if (active) { setUser(toUser(session?.user ?? null)); setLoading(false); } });
+    return () => { active = false; data.subscription.unsubscribe(); };
+  }, []);
+
+  const logout = useCallback(async () => { if (supabase) await supabase.auth.signOut(); setUser(null); }, []);
 
   useEffect(() => {
-    if (
-      !redirectOnUnauthenticated ||
-      meQuery.isLoading ||
-      logoutMutation.isPending ||
-      state.user ||
-      typeof window === "undefined"
-    )
-      return;
+    if (!redirectOnUnauthenticated || loading || user || typeof window === "undefined") return;
     if (redirectPath && window.location.pathname === redirectPath) return;
     window.location.href = redirectPath ?? "/login";
-  }, [
-    redirectOnUnauthenticated,
-    redirectPath,
-    logoutMutation.isPending,
-    meQuery.isLoading,
-    state.user,
-  ]);
+  }, [redirectOnUnauthenticated, redirectPath, loading, user]);
 
-  return { ...state, refresh: () => meQuery.refetch(), logout };
+  return { user, loading, error: null, isAuthenticated: Boolean(user), refresh: async () => undefined, logout };
 }
