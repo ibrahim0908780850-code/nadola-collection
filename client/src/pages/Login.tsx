@@ -21,7 +21,13 @@ export default function Login() {
       ? await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
       : await supabase.auth.signUp({ email: email.trim().toLowerCase(), password, options: { data: { full_name: name.trim() } } });
     if (result.error) { setError(result.error.message.includes("Invalid") ? "البريد الإلكتروني أو كلمة السر غير صحيحة." : result.error.message); return; }
-    if (mode === "register" && !result.data.session) { toast.success("تم إنشاء الحساب. تحقق من بريدك الإلكتروني لتفعيله."); setMode("login"); return; }
+    if (mode === "register") {
+      const authUser = result.data.user;
+      if (authUser) {
+        await fetch("/api/profile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: authUser.id, email: authUser.email, name }) });
+      }
+      if (!result.data.session) { toast.success("تم إنشاء الحساب وحفظه. تحقق من بريدك الإلكتروني لتفعيله."); setMode("login"); return; }
+    }
     toast.success(mode === "login" ? "مرحبًا بعودتك" : "تم إنشاء الحساب بنجاح");
     const isAdmin = email.trim().toLowerCase() === "ibrahimahmed@gmail.com";
     navigate(mode === "login" && isAdmin ? "/admin" : "/");
