@@ -33,11 +33,17 @@ export default async function handler(req: { method?: string; headers?: Record<s
     if (!insert.ok) return res.status(500).json({ error: await insert.text() });
     return res.status(200).json({ product: await insert.json() });
   }
-  if (body.action === "update" || body.action === "archive") {
+  if (body.action === "update" || body.action === "delete") {
     const id = Number(body.id);
     if (!id) return res.status(400).json({ error: "Product id is required" });
     const { action: _action, id: _id, ...input } = body;
-    const update = body.action === "archive" ? { status: "archived", updatedAt: new Date().toISOString() } : { ...input, updatedAt: new Date().toISOString() };
+    if (body.action === "delete") {
+      await fetch(`${url}/rest/v1/order_items?productId=eq.${id}`, { method: "DELETE", headers: { apikey: key, Authorization: `Bearer ${key}` } });
+      const deleted = await fetch(`${url}/rest/v1/products?id=eq.${id}`, { method: "DELETE", headers: { apikey: key, Authorization: `Bearer ${key}`, Prefer: "return=representation" } });
+      if (!deleted.ok) return res.status(500).json({ error: await deleted.text() });
+      return res.status(200).json({ deleted: await deleted.json() });
+    }
+    const update = { ...input, updatedAt: new Date().toISOString() };
     const response = await fetch(`${url}/rest/v1/products?id=eq.${id}`, { method: "PATCH", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation" }, body: JSON.stringify(update) });
     if (!response.ok) return res.status(500).json({ error: await response.text() });
     return res.status(200).json({ products: await response.json() });
