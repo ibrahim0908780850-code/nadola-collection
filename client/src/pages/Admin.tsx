@@ -75,8 +75,8 @@ export default function Admin() {
   const ordersLoading = dashboardLoading;
   const customersLoading = dashboardLoading;
   const create = { isPending: saving };
-  const update = trpc.admin.updateProduct.useMutation({ onSuccess: () => { toast.success("تم تعديل المنتج"); utils.admin.products.invalidate(); utils.admin.stats.invalidate(); closeForm(); }, onError: (error) => toast.error(error.message.includes("PRODUCT_ALREADY_EXISTS") ? "يوجد منتج آخر بهذا الاسم أو الرابط" : "تعذر تعديل المنتج") });
-  const remove = trpc.admin.deleteProduct.useMutation({ onSuccess: () => { toast.success("تمت أرشفة المنتج"); utils.admin.products.invalidate(); utils.admin.stats.invalidate(); } });
+  const update = { isPending: saving, mutate: async ({ id, data }: { id: number; data: any }) => { try { await adminRequest({ action: "update", id, ...data }); toast.success("تم تعديل المنتج"); await loadDashboard(); closeForm(); } catch { toast.error("تعذر تعديل المنتج"); } } };
+  const remove = { mutate: async ({ id }: { id: number }) => { try { await adminRequest({ action: "archive", id }); toast.success("تمت أرشفة المنتج"); await loadDashboard(); } catch { toast.error("تعذر أرشفة المنتج"); } } };
   const updateOrder = trpc.admin.updateOrderStatus.useMutation({ onSuccess: () => { toast.success("تم تحديث حالة الطلب"); utils.admin.orders.invalidate(); utils.admin.stats.invalidate(); } });
   const saveSetting = trpc.admin.saveSetting.useMutation({ onSuccess: () => { toast.success("تم حفظ الإعداد"); utils.admin.settings.invalidate(); } });
   const uploadImage = { isPending: uploading };
