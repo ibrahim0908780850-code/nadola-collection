@@ -83,7 +83,8 @@ export default function Home() {
   const [selected, setSelected] = useState<Product | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [sort, setSort] = useState("الأحدث");
-  const createOrder = trpc.orders.create.useMutation();
+  const [orderSaving, setOrderSaving] = useState(false);
+  const createOrder = { isPending: orderSaving };
   const catalogProducts = remoteProducts?.length ? remoteProducts.map(mapRemoteProduct) : products;
   const handleLogout = async () => {
     try {
@@ -115,24 +116,19 @@ export default function Home() {
   };
   const updateQty = (id: number, amount: number) => setCart((current) => current.map((item) => item.id === id ? { ...item, quantity: Math.max(1, item.quantity + amount) } : item));
   const removeItem = (id: number) => setCart((current) => current.filter((item) => item.id !== id));
-  const orderViaWhatsapp = (items = cart) => {
+  const orderViaWhatsapp = async (items = cart) => {
     if (!items.length) return toast.error("السلة فارغة");
     const orderTotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
     const lines = items.map((i, idx) => { const imageUrl = i.image.startsWith("http") ? i.image : `${window.location.origin}${i.image}`; return `${idx + 1}. ${i.name} — الكمية: ${i.quantity}\nصورة المنتج: ${imageUrl}`; });
     const rawMessage = `السلام عليكم Nadola Collection 🌸\n\nأرغب في طلب:\n${lines.join("\n\n")}\n\nالإجمالي: ${money(orderTotal)}\n\nأرجو تأكيد التوفر والتوصيل.`;
-    createOrder.mutate({
-      customerName: user?.name?.trim() || "عميل Nadola",
-      customerPhone: "عبر واتساب",
-      total: orderTotal,
-      whatsappMessage: rawMessage,
-      items: items.map((i) => ({ productId: i.id, productName: i.name, productSize: i.size, quantity: i.quantity, unitPrice: i.price })),
-    }, {
-      onSuccess: ({ orderNumber }) => {
-        toast.success(`تم حفظ الطلب ${orderNumber} وسيتم فتح واتساب`);
-        window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(rawMessage)}`, "_blank");
-      },
-      onError: () => toast.error("تعذر حفظ الطلب حالياً، حاولي مرة أخرى"),
-    });
+    setOrderSaving(true);
+    try {
+      const response = await fetch("/api/order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerName: user?.name?.trim() || "عميل Nadola", customerPhone: "عبر واتساب", total: orderTotal, whatsappMessage: rawMessage, items: items.map((i) => ({ productId: i.id, productName: i.name, productSize: i.size, quantity: i.quantity, unitPrice: i.price })) }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Order save failed");
+      toast.success(`تم حفظ الطلب ${result.orderNumber} وسيتم فتح واتساب`);
+      window.open(`https://wa.me/${whatsapp}?text=${encodeURIComponent(rawMessage)}`, "_blank");
+    } catch { toast.error("تعذر حفظ الطلب حالياً، حاولي مرة أخرى"); } finally { setOrderSaving(false); }
   };
 
   return (
